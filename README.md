@@ -3,13 +3,15 @@
 Site officiel de **Barman Mobile Group (BMG)**, entreprise événementielle
 sénégalaise — « La fête ne commence pas sans nous ».
 
-Construit avec **Next.js 14 (App Router) + TypeScript + Tailwind CSS**.
+Domaine officiel : **https://barmanmobile.com**
+
+Construit avec **Next.js 16 (App Router) + TypeScript + Tailwind CSS**.
 
 ---
 
 ## 1. Installation
 
-Prérequis : [Node.js](https://nodejs.org) version 18 ou supérieure.
+Prérequis : [Node.js](https://nodejs.org) version 20.9 ou supérieure.
 
 ```bash
 npm install
@@ -66,42 +68,21 @@ toucher au code des pages pour changer un contenu.
 
 ---
 
-## 5. Remplacer les photos
+## 5. Photos
 
-Le site utilise pour le moment des **emplacements clairement identifiés**
-(cadre en pointillés avec la mention « Photo à compléter ») partout où une
-vraie photo est nécessaire, afin de ne jamais faire croire qu'une image
-générique représente une véritable prestation de Barman Mobile Group.
+Les photos officielles de Barman Mobile Group sont intégrées dans
+`public/images/` au format WebP optimisé. La galerie se modifie dans
+`src/app/realisations/page.tsx`. Les images principales de chaque pôle sont
+définies dans `src/config/services.ts`.
 
-Pour insérer une vraie photo :
+Pour ajouter une photo, placez-la dans `public/images/`, puis renseignez son
+chemin et un texte alternatif descriptif dans la page ou la configuration
+concernée.
 
-1. Placez votre fichier image dans `public/images/` (ex : `public/images/hero-mariage.jpg`).
-2. Dans le composant concerné, remplacez l'appel à `<PlaceholderImage ... />`
-   par une image Next.js, par exemple :
+## 6. Logo
 
-```tsx
-import Image from "next/image";
-
-<Image
-  src="/images/hero-mariage.jpg"
-  alt="Bar mobile Barman Mobile Group lors d'un mariage à Dakar"
-  fill
-  className="object-cover"
-/>
-```
-
-Pensez à toujours renseigner un texte alternatif (`alt`) descriptif pour
-l'accessibilité et le référencement.
-
-## 6. Remplacer le logo
-
-Le nom de la marque est actuellement affiché en texte (police Fraunces)
-dans `src/components/Header.tsx` et `src/components/Footer.tsx`. Pour
-utiliser un vrai logo image :
-
-1. Placez le fichier logo dans `public/images/logo.svg` (ou `.png`).
-2. Remplacez le texte `Barman Mobile Group` par un composant `<Image>`
-   pointant vers ce fichier, dans `Header.tsx` et `Footer.tsx`.
+Le logo officiel est intégré dans `public/images/logo.webp` et utilisé dans
+l'en-tête et le pied de page.
 
 ## 7. Modifier les coordonnées
 
@@ -159,10 +140,9 @@ sur `/services/<slug>`.
 3. Cliquez sur **Add New → Project** et importez votre dépôt.
 4. Vercel détecte automatiquement Next.js : laissez les réglages par
    défaut et cliquez sur **Deploy**.
-5. Une fois déployé, ajoutez votre nom de domaine définitif dans
-   **Project Settings → Domains**, puis mettez à jour la valeur `url`
-   dans `src/config/site.ts` avec ce domaine (utilisé pour le SEO, le
-   sitemap et les données structurées).
+5. Une fois déployé, ajoutez **barmanmobile.com** dans
+   **Project Settings → Domains**. Le domaine officiel est déjà renseigné
+   dans `src/config/site.ts` pour le SEO, le sitemap et les données structurées.
 
 Aucune variable d'environnement n'est nécessaire pour le fonctionnement
 actuel du site (le formulaire de devis fonctionne entièrement côté
@@ -175,8 +155,8 @@ navigateur, via un lien WhatsApp prérempli).
 - **Versions anglaise et allemande** : l'architecture (`src/app/`,
   `src/config/`) est prête à accueillir un système de contenu multilingue
   (ex. `next-intl`) une fois la version française validée.
-- **Vraies photos** : remplacer progressivement les emplacements
-  « Photo à compléter » par les visuels réels des prestations.
+- **Galerie** : enrichir progressivement les réalisations avec les nouvelles
+  prestations photographiées.
 - **Bandeau de cookies** : à ajouter uniquement si un outil nécessitant
   un consentement (statistiques, publicité) est intégré ultérieurement —
   aucun cookie non essentiel n'est utilisé actuellement.
