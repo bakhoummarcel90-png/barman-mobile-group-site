@@ -1,4 +1,14 @@
-export const faqItems = [
+ export const faqItems = [ 
+   {
+    question: "Quelles sont les conditions de location de la verrerie et du mange-debout ?",
+    answer:
+      "Les tarifs indiqués correspondent à une journée de location. Le client récupère lui-même le matériel et le rapporte après utilisation, à une date et une heure fixées lors de la réservation. Le matériel est compté et contrôlé au retrait et au retour, et une caution remboursable est exigée avant la remise du matériel.",
+  },
+  {
+    question: "Que se passe-t-il en cas de retard, de casse ou de perte de matériel loué ?",
+    answer:
+      "Tout retard entraîne la facturation d'une journée supplémentaire au même tarif. Toute pièce cassée, perdue ou endommagée est facturée au prix de remplacement, de même que toute housse perdue, déchirée ou présentant des dégradations permanentes. La réservation reste par ailleurs soumise à la disponibilité du matériel.",
+  },
   {
     question: "Intervenez-vous uniquement à Dakar ?",
     answer:
