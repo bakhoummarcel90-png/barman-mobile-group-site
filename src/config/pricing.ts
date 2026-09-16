@@ -123,17 +123,17 @@ export type RentalItem = {
 };
 
 export const rentalCatalog: RentalItem[] = [
-  { category: "Verrerie", name: "Verre à vin", unit: "pièce", priceFCFA: null },
-  { category: "Verrerie", name: "Flûte à champagne", unit: "pièce", priceFCFA: null },
-  { category: "Verrerie", name: "Verre long drink", unit: "pièce", priceFCFA: null },
-  { category: "Verrerie", name: "Verre à cocktail", unit: "pièce", priceFCFA: null },
-  { category: "Verrerie", name: "Verre Martini", unit: "pièce", priceFCFA: null },
-  { category: "Verrerie", name: "Verre Margarita", unit: "pièce", priceFCFA: null },
+  { category: "Verrerie", name: "Verre à vin", unit: "pièce", priceFCFA: 200 },
+  { category: "Verrerie", name: "Flûte à champagne", unit: "pièce", priceFCFA: 200 },
+  { category: "Verrerie", name: "Verre long drink", unit: "pièce", priceFCFA: 150 },
+  { category: "Verrerie", name: "Coupe à cocktail", unit: "pièce", priceFCFA: 250 },
+  { category: "Verrerie", name: "Verre Martini", unit: "pièce", priceFCFA: 250 },
+  { category: "Verrerie", name: "Verre Margarita", unit: "pièce", priceFCFA: 250 },
   { category: "Vaisselle", name: "Assiette", unit: "pièce", priceFCFA: null },
   { category: "Vaisselle", name: "Couvert (jeu complet)", unit: "jeu", priceFCFA: null },
   { category: "Vaisselle", name: "Chafing dish", unit: "pièce", priceFCFA: null },
   { category: "Mobilier", name: "Table de buffet", unit: "pièce", priceFCFA: null },
-  { category: "Mobilier", name: "Mange-debout", unit: "pièce", priceFCFA: null },
+  { category: "Mobilier", name: "Mange-debout avec housse blanche", unit: "pièce — minimum 5 unités", priceFCFA: 3000 },
   { category: "Mobilier", name: "Table", unit: "pièce", priceFCFA: null },
   { category: "Mobilier", name: "Chaise", unit: "pièce", priceFCFA: null },
   { category: "Habillage", name: "Nappe", unit: "pièce", priceFCFA: null },
@@ -141,7 +141,6 @@ export const rentalCatalog: RentalItem[] = [
   { category: "Structures", name: "Tente de réception", unit: "pièce", priceFCFA: null },
   { category: "Bar", name: "Bar mobile", unit: "unité", priceFCFA: null },
 ];
-
 export const rentalCategories = Array.from(
   new Set(rentalCatalog.map((item) => item.category))
 );
