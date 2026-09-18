@@ -10,6 +10,7 @@ import { services } from "@/config/services";
 const navLinks = [
   { href: "/a-propos", label: "À propos" },
   { href: "/formules", label: "Nos formules" },
+  { href: "/academie", label: "Académie" },
   { href: "/realisations", label: "Réalisations" },
   { href: "/devis", label: "Demander un devis" },
   { href: "/contact", label: "Contact" },
