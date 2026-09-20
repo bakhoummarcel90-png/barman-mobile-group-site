@@ -8,7 +8,7 @@ import Reveal from "@/components/Reveal";
 export const metadata: Metadata = {
   title: "Nos services événementiels à Dakar",
   description:
-    "Bar mobile, catering, open grill, location de matériel, staffing et expériences : découvrez les six pôles de services de Barman Mobile Group.",
+    "Bar mobile, catering, open grill, location de matériel, décoration événementielle, staffing et expériences : découvrez les sept pôles de services de Barman Mobile Group.",
   alternates: { canonical: "/services" },
 };
 
@@ -19,7 +19,7 @@ export default function ServicesPage() {
         <Reveal className="max-w-2xl">
           <p className="text-sm uppercase tracking-[0.2em] text-champagne/80">Nos services</p>
           <h1 className="mt-4 font-display text-4xl text-ivoire md:text-5xl">
-            Six pôles, une seule équipe pour votre événement
+            Sept pôles, une seule équipe pour votre événement
           </h1>
           <p className="mt-6 text-ivoire/65">
             Barman Mobile Group a construit son savoir-faire autour du bar mobile, puis l'a

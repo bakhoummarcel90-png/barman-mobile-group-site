@@ -6,6 +6,7 @@ import { services } from "@/config/services";
 import PlaceholderImage from "@/components/PlaceholderImage";
 import ServiceCard from "@/components/ServiceCard";
 import RentalCatalog from "@/components/RentalCatalog";
+import DecorationCatalog from "@/components/DecorationCatalog";
 import Reveal from "@/components/Reveal";
 
 export function generateStaticParams() {
@@ -96,6 +97,24 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
             </Reveal>
             <div className="mt-8">
               <RentalCatalog />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {service.slug === "decoration-evenementielle" && (
+        <section className="bg-nuit-soft px-5 py-20">
+          <div className="mx-auto max-w-5xl">
+            <Reveal>
+              <h2 className="font-display text-2xl text-ivoire md:text-3xl">
+                Notre matériel disponible à la location
+              </h2>
+              <p className="mt-3 text-sm text-ivoire/60">
+                Catalogue mis à jour régulièrement.
+              </p>
+            </Reveal>
+            <div className="mt-8">
+              <DecorationCatalog />
             </div>
           </div>
         </section>

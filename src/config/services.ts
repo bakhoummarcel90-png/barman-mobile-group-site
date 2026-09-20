@@ -95,6 +95,25 @@ export const services: Service[] = [
     heroImage: "/images/bar-display.webp",
   },
   {
+    slug: "decoration-evenementielle",
+    shortName: "Décoration & Location de matériel événementiel",
+    fullName: "BMG Décoration Événementielle",
+    tagline: "Des structures modernes pour sublimer votre décor",
+    intro:
+      "Arches, supports fleurs, socles et panneaux de bienvenue : BMG Décoration Événementielle met à votre disposition des structures dorées, modernes et entretenues pour habiller votre mariage, votre anniversaire ou votre événement d'entreprise.",
+    bullets: [
+      "Matériel moderne et tendance",
+      "Facile à installer",
+      "Idéal pour tous vos événements",
+      "Location simple et rapide",
+      "Matériel en bon état et bien entretenu",
+    ],
+    forWho:
+      "Mariages, anniversaires, fêtes privées, shootings photo et événements d'entreprise.",
+    heroPlaceholder: "Photo d'une arche ronde dorée habillée d'un drapé et de fleurs",
+    heroImage: "/images/decoration/arche-ronde.jpg",
+  },
+  {
     slug: "staffing",
     shortName: "Staffing",
     fullName: "BMG Staffing",
