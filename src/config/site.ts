@@ -33,7 +33,7 @@ export const siteConfig = {
     phonePrincipal: "+221 77 171 46 62",
     whatsapp1: "+221 76 189 30 48",
     whatsapp2: "+221 77 256 24 48",
-    email: "bakhoummarcel90@gmail.com",
+    email:"contact@barmanmobile.com", 
     address: "Mamelles, Dakar, Sénégal",
     city: "Dakar",
     country: "Sénégal",
