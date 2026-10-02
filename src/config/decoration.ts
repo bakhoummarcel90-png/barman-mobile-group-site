@@ -10,6 +10,10 @@ export type DecorationItem = {
   variant?: string;
   image: string;
   availability: string;
+  /** Nombre maximum de pièces (ou de sets) qu'un client peut réserver */
+  maxQuantity: number;
+  /** Cadrage de la photo dans la carte (ex. "center 30%"), facultatif */
+  imagePosition?: string;
   priceFCFA: number;
   unit: string;
 };
@@ -20,6 +24,7 @@ export const decorationItems: DecorationItem[] = [
     name: "Arche ronde",
     image: "/images/decoration/arche-ronde.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 15000,
     unit: "jour",
   },
@@ -29,6 +34,7 @@ export const decorationItems: DecorationItem[] = [
     variant: "Asymétrique",
     image: "/images/decoration/arche-geometrique.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 20000,
     unit: "jour",
   },
@@ -38,6 +44,7 @@ export const decorationItems: DecorationItem[] = [
     variant: "2 m",
     image: "/images/decoration/arche-coeur.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 15000,
     unit: "jour",
   },
@@ -46,6 +53,7 @@ export const decorationItems: DecorationItem[] = [
     name: "Arche carrée / rectangulaire",
     image: "/images/decoration/arche-carree.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 15000,
     unit: "jour",
   },
@@ -55,6 +63,7 @@ export const decorationItems: DecorationItem[] = [
     variant: "3 hauteurs — même modèle",
     image: "/images/decoration/support-fleurs.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 10000,
     unit: "jour (pièce)",
   },
@@ -64,6 +73,8 @@ export const decorationItems: DecorationItem[] = [
     variant: "Ronds, différentes hauteurs",
     image: "/images/decoration/socles-blancs.jpg",
     availability: "1 set disponible",
+    maxQuantity: 1,
+    imagePosition: "center 25%",
     priceFCFA: 20000,
     unit: "jour",
   },
@@ -73,6 +84,7 @@ export const decorationItems: DecorationItem[] = [
     variant: "Doré",
     image: "/images/decoration/panneau-bienvenue.jpg",
     availability: "2 pièces disponibles",
+    maxQuantity: 2,
     priceFCFA: 7500,
     unit: "jour",
   },
