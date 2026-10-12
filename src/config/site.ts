@@ -21,10 +21,11 @@ export const siteConfig = {
   foundingYear: 2019,
   founder: "Marcel Bakhoum",
 
-  // Domaine du site — à confirmer avant mise en ligne (nom de domaine
-  // réservé ?). Sert au SEO (canonical, Open Graph) : sans impact si
-  // temporairement incorrect, mais à corriger avant le lancement définitif.
-  url: "https://barmanmobile.com",
+  // Domaine canonique officiel (avec www, sans slash final). Toutes les
+  // balises canonical, le sitemap, robots.txt, Open Graph et les données
+  // structurées en dérivent : ne pas le modifier sans changer aussi la
+  // redirection de domaine configurée sur Vercel.
+  url: "https://www.barmanmobile.com",
 
   description:
     "Barman Mobile Group organise vos bars mobiles, cocktails, catering, open grill, location de matériel et personnel événementiel à Dakar et partout au Sénégal.",

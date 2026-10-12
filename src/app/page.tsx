@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Wine, UtensilsCrossed, Flame, PackageSearch, Users, Sparkles } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { pageOpenGraph } from "@/lib/seo";
 import { services, methodeDeTravail, pourquoiNousChoisir } from "@/config/services";
 import { formules } from "@/config/pricing";
 import { typesEvenements } from "@/config/faq";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   description:
     "Bar mobile, cocktails, catering, open grill, location de matériel et personnel événementiel : Barman Mobile Group réunit tout ce dont vous avez besoin pour une réception réussie à Dakar et partout au Sénégal.",
   alternates: { canonical: "/" },
+  openGraph: pageOpenGraph("/"),
 };
 
 const icons = [Wine, UtensilsCrossed, Flame, PackageSearch, Users, Sparkles];

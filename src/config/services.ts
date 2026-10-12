@@ -14,6 +14,11 @@ export type Service = {
   forWho: string;
   heroPlaceholder: string; // description de la photo à insérer
   heroImage?: string;
+  // Optionnels : titre (<title>, sans le suffixe « | Barman Mobile Group »)
+  // et meta description dédiés aux moteurs de recherche. À défaut, la page
+  // utilise fullName et intro.
+  seoTitle?: string;
+  seoDescription?: string;
 };
 
 export const services: Service[] = [
@@ -38,6 +43,9 @@ export const services: Service[] = [
       "Mariages, anniversaires, réceptions d'entreprise, concerts et soirées privées.",
     heroPlaceholder: "Photo d'un bar mobile élégant, éclairé, lors d'une réception le soir",
     heroImage: "/images/hero-barman-mobile.webp",
+    seoTitle: "Bar mobile et open bar à Dakar, Sénégal",
+    seoDescription:
+      "Bar mobile et open bar à Dakar et au Sénégal : barmans professionnels, cocktails sur mesure avec ou sans alcool, installation et service complet.",
   },
   {
     slug: "catering",

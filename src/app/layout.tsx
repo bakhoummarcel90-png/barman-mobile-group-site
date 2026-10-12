@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { siteConfig } from "@/config/site";
+import { defaultOpenGraph } from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -24,22 +25,9 @@ export const metadata: Metadata = {
     "catering Dakar",
     "open grill Sénégal",
   ],
-  openGraph: {
-    title: `${siteConfig.name} — ${siteConfig.slogan}`,
-    description: siteConfig.description,
-    url: siteConfig.url,
-    siteName: siteConfig.name,
-    locale: "fr_SN",
-    type: "website",
-    images: [
-      {
-        url: "/images/hero-barman-mobile.webp",
-        width: 2000,
-        height: 1324,
-        alt: "Barman Mobile Group en prestation à Dakar",
-      },
-    ],
-  },
+  // Pas d'og:url ici : chaque page déclare la sienne (sinon toutes les
+  // pages héritaient de l'URL de l'accueil).
+  openGraph: defaultOpenGraph,
   twitter: {
     card: "summary_large_image",
     title: `${siteConfig.name} — ${siteConfig.slogan}`,
@@ -49,9 +37,6 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
-  },
-  alternates: {
-    canonical: "/",
   },
   icons: {
     icon: "/favicon.svg",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, BookOpen, Clock } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { pageOpenGraph } from "@/lib/seo";
 import {
   manuelConfig,
   manuelPersonas,
@@ -24,10 +25,10 @@ const DESCRIPTION =
   "L'Académie Barman Mobile Group : le manuel professionnel du barman, le guide pour créer et rentabiliser un bar mobile, et bientôt une formation en ligne et des kits professionnels.";
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: { absolute: TITLE },
   description: DESCRIPTION,
   alternates: { canonical: PAGE_URL },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: PAGE_URL },
+  openGraph: pageOpenGraph(PAGE_URL, { title: TITLE, description: DESCRIPTION }),
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 

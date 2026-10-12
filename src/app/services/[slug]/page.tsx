@@ -8,6 +8,7 @@ import ServiceCard from "@/components/ServiceCard";
 import RentalCatalog from "@/components/RentalCatalog";
 import DecorationCatalog from "@/components/DecorationCatalog";
 import Reveal from "@/components/Reveal";
+import { pageOpenGraph } from "@/lib/seo";
 
 export function generateStaticParams() {
   return services.map((s) => ({ slug: s.slug }));
@@ -21,10 +22,14 @@ export async function generateMetadata({ params }: ServicePageProps): Promise<Me
   const { slug } = await params;
   const service = services.find((s) => s.slug === slug);
   if (!service) return {};
+  const path = `/services/${service.slug}`;
+  const title = service.seoTitle ?? service.fullName;
+  const description = service.seoDescription ?? service.intro;
   return {
-    title: service.fullName,
-    description: service.intro,
-    alternates: { canonical: `/services/${service.slug}` },
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: pageOpenGraph(path, { title, description }),
   };
 }
 
