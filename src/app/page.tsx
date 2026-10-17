@@ -94,7 +94,7 @@ export default function HomePage() {
           <Reveal className="max-w-xl">
             <h2 className="font-display text-3xl text-ivoire md:text-4xl">Nos pôles de services</h2>
             <p className="mt-4 text-ivoire/60">
-              Six expertises, une seule équipe. Combinez-les selon les besoins de votre
+              Sept expertises, une seule équipe. Combinez-les selon les besoins de votre
               événement.
             </p>
           </Reveal>

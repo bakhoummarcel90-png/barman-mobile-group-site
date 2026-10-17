@@ -3,6 +3,10 @@ import { Phone, Mail, MapPin, Instagram, Facebook, Music2 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Reveal from "@/components/Reveal";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
+
+const WHATSAPP_HELLO =
+  "Bonjour Barman Mobile Group, je souhaite avoir des renseignements sur vos prestations.";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -27,7 +31,7 @@ export default function ContactPage() {
         <Reveal className="mt-12 grid gap-6 sm:grid-cols-2">
           <div className="rounded-2xl border border-champagne/15 bg-nuit-soft p-6">
             <Phone className="h-6 w-6 text-champagne" />
-            <p className="mt-3 text-sm text-ivoire/50">Téléphone</p>
+            <p className="mt-3 text-sm text-ivoire/50">Téléphone / WhatsApp</p>
             <a href={`tel:${siteConfig.contact.phonePrincipal.replace(/\s/g, "")}`} className="focus-ring mt-1 block text-ivoire hover:text-champagne">
               {siteConfig.contact.phonePrincipal}
             </a>
@@ -46,8 +50,22 @@ export default function ContactPage() {
           </div>
           <div className="rounded-2xl border border-champagne/15 bg-nuit-soft p-6">
             <p className="text-sm text-ivoire/50">WhatsApp</p>
-            <p className="mt-1 text-ivoire">{siteConfig.contact.whatsapp1}</p>
-            <p className="text-ivoire/70">{siteConfig.contact.whatsapp2}</p>
+            <a
+              href={buildWhatsAppLink(WHATSAPP_HELLO, siteConfig.contact.whatsapp1)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-ring mt-1 block text-ivoire hover:text-champagne"
+            >
+              {siteConfig.contact.whatsapp1}
+            </a>
+            <a
+              href={buildWhatsAppLink(WHATSAPP_HELLO, siteConfig.contact.whatsapp2)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-ring block text-ivoire/70 hover:text-champagne"
+            >
+              {siteConfig.contact.whatsapp2}
+            </a>
             <div className="mt-4">
               <WhatsAppButton />
             </div>

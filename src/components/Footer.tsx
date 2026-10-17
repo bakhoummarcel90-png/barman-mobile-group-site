@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, Facebook, Music2, Phone, Mail, MapPin } from "lucide-react";
+import { Instagram, Facebook, Music2, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { services } from "@/config/services";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 export default function Footer() {
   return (
@@ -86,6 +87,20 @@ export default function Footer() {
               <Phone className="mt-0.5 h-4 w-4 shrink-0 text-champagne/70" />
               <a href={`tel:${siteConfig.contact.phonePrincipal.replace(/\s/g, "")}`} className="focus-ring hover:text-ivoire">
                 {siteConfig.contact.phonePrincipal}
+              </a>
+            </li>
+            <li className="flex items-start gap-2">
+              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-champagne/70" />
+              <a
+                href={buildWhatsAppLink(
+                  "Bonjour Barman Mobile Group, je souhaite avoir des renseignements sur vos prestations.",
+                  siteConfig.contact.whatsapp1,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="focus-ring hover:text-ivoire"
+              >
+                WhatsApp {siteConfig.contact.whatsapp1}
               </a>
             </li>
             <li className="flex items-start gap-2">

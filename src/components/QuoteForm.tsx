@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { CheckCircle2, Send, MessageCircle } from "lucide-react";
+import { useEffect, useRef, useState, FormEvent } from "react";
+import { CheckCircle2, Send, MessageCircle, Copy, Mail } from "lucide-react";
 import { buildQuoteWhatsAppMessage, buildWhatsAppLink, type QuoteFormData } from "@/lib/whatsapp";
 import { services } from "@/config/services";
+import { siteConfig } from "@/config/site";
 
 const emptyData: QuoteFormData = {
   nom: "",
@@ -33,9 +34,24 @@ export default function QuoteForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [focusError, setFocusError] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Après une validation en échec, amène le premier champ en erreur à l'écran
+  // (indispensable sur téléphone, où le formulaire est long).
+  useEffect(() => {
+    if (!focusError) return;
+    const first = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (first) {
+      first.scrollIntoView({ behavior: "smooth", block: "center" });
+      first.focus({ preventScroll: true });
+    }
+  }, [focusError]);
 
   function update<K extends keyof QuoteFormData>(key: K, value: QuoteFormData[K]) {
     setData((d) => ({ ...d, [key]: value }));
+    setErrors((current) => (current[key] ? { ...current, [key]: undefined } : current));
   }
 
   function toggleService(name: string) {
@@ -50,19 +66,30 @@ export default function QuoteForm() {
   function validate(): boolean {
     const next: Errors = {};
     if (!data.nom.trim()) next.nom = "Merci d'indiquer votre nom et prénom.";
+    const phoneDigits = data.telephone.replace(/\D/g, "");
     if (!data.telephone.trim()) next.telephone = "Un numéro de téléphone est nécessaire.";
+    else if (phoneDigits.length < 8 || phoneDigits.length > 15)
+      next.telephone = "Ce numéro semble incomplet. Exemple : +221 77 000 00 00.";
+    if (data.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()))
+      next.email = "Cette adresse e-mail ne semble pas valide.";
     if (!data.typeEvenement.trim()) next.typeEvenement = "Précisez le type d'événement.";
     if (!data.date.trim()) next.date = "Merci d'indiquer la date de l'événement.";
+    else if (data.date < todayIso()) next.date = "Cette date est déjà passée.";
     if (!data.invites.trim()) next.invites = "Indiquez un nombre d'invités approximatif.";
+    else if (!/\d/.test(data.invites)) next.invites = "Indiquez un nombre, même approximatif (ex : 150).";
     if (!consent) next.consent = "Merci d'autoriser Barman Mobile Group à vous recontacter.";
     setErrors(next);
-    return Object.keys(next).length === 0;
+    const ok = Object.keys(next).length === 0;
+    if (!ok) setFocusError((n) => n + 1);
+    return ok;
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    setCopied(false);
     setSubmitted(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   if (submitted) {
@@ -72,13 +99,10 @@ export default function QuoteForm() {
         <CheckCircle2 className="mx-auto h-12 w-12 text-champagne" aria-hidden="true" />
         <h2 className="mt-4 font-display text-2xl text-ivoire">Votre demande est prête</h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-ivoire/65">
-          Voici le récapitulatif de votre demande. Envoyez-le nous directement sur WhatsApp pour
-          un traitement rapide, nous revenons vers vous dans les meilleurs délais.
+          Dernière étape : elle n'est pas encore envoyée. Appuyez sur « Envoyer sur WhatsApp »,
+          puis validez l'envoi dans WhatsApp. Nous revenons vers vous dans les meilleurs délais.
         </p>
-        <div className="mx-auto mt-6 max-w-lg rounded-xl border border-champagne/15 bg-nuit p-5 text-left text-sm text-ivoire/70 whitespace-pre-line">
-          {message}
-        </div>
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           <a
             href={buildWhatsAppLink(message)}
             target="_blank"
@@ -87,6 +111,28 @@ export default function QuoteForm() {
           >
             <MessageCircle className="h-4 w-4" /> Envoyer sur WhatsApp
           </a>
+          <a
+            href={`mailto:${siteConfig.contact.email}?subject=${encodeURIComponent(
+              `Demande de devis — ${data.typeEvenement || "événement"}`,
+            )}&body=${encodeURIComponent(message)}`}
+            className="focus-ring inline-flex items-center gap-2 rounded-full border border-champagne/40 px-6 py-3 text-sm text-ivoire hover:border-champagne"
+          >
+            <Mail className="h-4 w-4" /> Envoyer par e-mail
+          </a>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(message);
+                setCopied(true);
+              } catch {
+                setCopied(false);
+              }
+            }}
+            className="focus-ring inline-flex items-center gap-2 text-sm text-ivoire/60 hover:text-ivoire"
+          >
+            <Copy className="h-4 w-4" /> {copied ? "Récapitulatif copié" : "Copier le récapitulatif"}
+          </button>
           <button
             type="button"
             onClick={() => setSubmitted(false)}
@@ -95,25 +141,28 @@ export default function QuoteForm() {
             Modifier ma demande
           </button>
         </div>
+        <div className="mx-auto mt-7 max-w-lg rounded-xl border border-champagne/15 bg-nuit p-5 text-left text-sm text-ivoire/70 whitespace-pre-line">
+          {message}
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-10">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-10">
       <fieldset className="grid gap-6 sm:grid-cols-2">
         <legend className="mb-2 font-display text-xl text-ivoire sm:col-span-2">Vos coordonnées</legend>
         <Field label="Nom et prénom" required error={errors.nom}>
-          <input className={inputClass} value={data.nom} onChange={(e) => update("nom", e.target.value)} />
+          <input className={inputClass} autoComplete="name" aria-invalid={!!errors.nom} value={data.nom} onChange={(e) => update("nom", e.target.value)} />
         </Field>
         <Field label="Téléphone" required error={errors.telephone}>
-          <input className={inputClass} value={data.telephone} onChange={(e) => update("telephone", e.target.value)} />
+          <input type="tel" inputMode="tel" autoComplete="tel" className={inputClass} aria-invalid={!!errors.telephone} placeholder="+221 77 000 00 00" value={data.telephone} onChange={(e) => update("telephone", e.target.value)} />
         </Field>
         <Field label="WhatsApp">
-          <input className={inputClass} value={data.whatsapp} onChange={(e) => update("whatsapp", e.target.value)} />
+          <input type="tel" inputMode="tel" className={inputClass} placeholder="Si différent du téléphone" value={data.whatsapp} onChange={(e) => update("whatsapp", e.target.value)} />
         </Field>
-        <Field label="E-mail">
-          <input type="email" className={inputClass} value={data.email} onChange={(e) => update("email", e.target.value)} />
+        <Field label="E-mail" error={errors.email}>
+          <input type="email" autoComplete="email" aria-invalid={!!errors.email} className={inputClass} value={data.email} onChange={(e) => update("email", e.target.value)} />
         </Field>
         <Field label="Type de client">
           <select className={inputClass} value={data.typeClient} onChange={(e) => update("typeClient", e.target.value)}>
@@ -129,19 +178,20 @@ export default function QuoteForm() {
         <Field label="Type d'événement" required error={errors.typeEvenement}>
           <input
             className={inputClass}
+            aria-invalid={!!errors.typeEvenement}
             placeholder="Mariage, anniversaire, séminaire..."
             value={data.typeEvenement}
             onChange={(e) => update("typeEvenement", e.target.value)}
           />
         </Field>
         <Field label="Date de l'événement" required error={errors.date}>
-          <input type="date" className={inputClass} value={data.date} onChange={(e) => update("date", e.target.value)} />
+          <input type="date" min={todayIso()} aria-invalid={!!errors.date} className={inputClass} value={data.date} onChange={(e) => update("date", e.target.value)} />
         </Field>
         <Field label="Lieu">
           <input className={inputClass} value={data.lieu} onChange={(e) => update("lieu", e.target.value)} />
         </Field>
         <Field label="Nombre d'invités" required error={errors.invites}>
-          <input className={inputClass} value={data.invites} onChange={(e) => update("invites", e.target.value)} />
+          <input inputMode="numeric" aria-invalid={!!errors.invites} className={inputClass} placeholder="Ex : 150" value={data.invites} onChange={(e) => update("invites", e.target.value)} />
         </Field>
         <Field label="Heure de début">
           <input type="time" className={inputClass} value={data.heureDebut} onChange={(e) => update("heureDebut", e.target.value)} />
@@ -216,6 +266,7 @@ export default function QuoteForm() {
         <input
           type="checkbox"
           className="mt-0.5 h-4 w-4 accent-champagne"
+          aria-invalid={!!errors.consent}
           checked={consent}
           onChange={(e) => {
             setConsent(e.target.checked);
@@ -227,14 +278,25 @@ export default function QuoteForm() {
         J'autorise Barman Mobile Group à me recontacter au sujet de ma demande de devis.
       </label>
       {errors.consent && (
-        <p className="text-sm text-terre-light">{errors.consent}</p>
+        <p role="alert" className="text-sm text-terre-light">{errors.consent}</p>
       )}
+
+      {Object.values(errors).some(Boolean) && (
+        <p role="alert" className="text-sm text-terre-light">
+          Certains champs sont à compléter ou à corriger (indiqués ci-dessus).
+        </p>
+      )}
+
+      <p className="text-xs text-ivoire/50">
+        Après validation, votre demande s'ouvre dans WhatsApp, prête à nous être envoyée :
+        rien n'est transmis tant que vous n'avez pas confirmé l'envoi.
+      </p>
 
       <button
         type="submit"
         className="focus-ring inline-flex items-center gap-2 rounded-full bg-champagne px-7 py-3.5 text-sm font-medium text-nuit hover:bg-champagne-light"
       >
-        <Send className="h-4 w-4" /> Envoyer ma demande
+        <Send className="h-4 w-4" /> Préparer ma demande
       </button>
     </form>
   );
@@ -256,11 +318,20 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm text-ivoire/70">
-        {label} {required && <span className="text-terre-light">*</span>}
+      <label className="block">
+        <span className="mb-1.5 block text-sm text-ivoire/70">
+          {label} {required && <span className="text-terre-light" aria-hidden="true">*</span>}
+          {required && <span className="sr-only">(obligatoire)</span>}
+        </span>
+        {children}
       </label>
-      {children}
-      {error && <p className="mt-1.5 text-xs text-terre-light">{error}</p>}
+      {error && <p role="alert" className="mt-1.5 text-xs text-terre-light">{error}</p>}
     </div>
   );
+}
+
+function todayIso() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

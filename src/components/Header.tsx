@@ -95,6 +95,8 @@ export default function Header() {
         <button
           className="focus-ring text-ivoire lg:hidden"
           aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={open}
+          aria-controls="menu-mobile"
           onClick={() => setOpen((v) => !v)}
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -102,7 +104,7 @@ export default function Header() {
       </div>
 
       {open && (
-        <div className="border-t border-champagne/10 bg-nuit px-5 py-4 lg:hidden">
+        <div id="menu-mobile" className="border-t border-champagne/10 bg-nuit px-5 py-4 lg:hidden">
           <p className="mb-2 text-xs uppercase tracking-wide text-ivoire/50">Nos services</p>
           <div className="mb-4 flex flex-col gap-1">
             <Link href="/services" onClick={() => setOpen(false)} className="focus-ring py-1.5 text-sm text-champagne">

@@ -31,8 +31,12 @@ export const siteConfig = {
     "Barman Mobile Group organise vos bars mobiles, cocktails, catering, open grill, location de matériel et personnel événementiel à Dakar et partout au Sénégal.",
 
   contact: {
-    phonePrincipal: "+221 77 171 46 62",
+    // Numéro principal (appels et WhatsApp) — liens tel:, en-tête, pied de
+    // page, page Contact, mentions légales et données structurées JSON-LD.
+    phonePrincipal: "+221 77 256 24 48",
+    // Numéro WhatsApp dédié (bouton flottant, formulaire de devis).
     whatsapp1: "+221 76 189 30 48",
+    // Le second numéro WhatsApp est le numéro principal.
     whatsapp2: "+221 77 256 24 48",
     email:"contact@barmanmobile.com", 
     address: "Mamelles, Dakar, Sénégal",
