@@ -58,14 +58,6 @@ export default function ContactPage() {
             >
               {siteConfig.contact.whatsapp1}
             </a>
-            <a
-              href={buildWhatsAppLink(WHATSAPP_HELLO, siteConfig.contact.whatsapp2)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="focus-ring block text-ivoire/70 hover:text-champagne"
-            >
-              {siteConfig.contact.whatsapp2}
-            </a>
             <div className="mt-4">
               <WhatsAppButton />
             </div>
