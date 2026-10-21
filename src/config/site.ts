@@ -48,12 +48,12 @@ export const siteConfig = {
   whatsappPreferredNumber: "+221 76 189 30 48",
 
   social: {
-    instagram: "https://www.instagram.com/barman_mobile/", // À CONFIRMER : compte non vérifié par vos soins pour l'instant
-    facebook: "https://facebook.com/barmanmobile", // À COMPLÉTER si différent
+    instagram: "https://www.instagram.com/barman_mobile/",
+    facebook: "https://facebook.com/barmanmobile",
     tiktok: "https://www.tiktok.com/@barmanmobile01",
   },
 
-  // Chiffres clés — à mettre à jour librement, ils alimentent les compteurs animés
+  // Chiffres clés (confirmés le 21/10/2026) — alimentent les compteurs de l'accueil
   stats: [
     { value: 2019, suffix: "", label: "Année de création" },
     { value: 150, suffix: "+", label: "Prestations réalisées" },
