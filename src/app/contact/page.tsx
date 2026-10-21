@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { Phone, Mail, MapPin, Instagram, Facebook, Music2 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
   description:
     "Contactez Barman Mobile Group à Dakar par téléphone, WhatsApp ou e-mail pour organiser votre événement.",
   alternates: { canonical: "/contact" },
+  openGraph: pageOpenGraph("/contact"),
 };
 
 export default function ContactPage() {
@@ -64,14 +66,14 @@ export default function ContactPage() {
           </div>
         </Reveal>
 
-        <Reveal className="mt-12 flex items-center gap-5">
-          <a href={siteConfig.social.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="focus-ring text-ivoire/60 hover:text-champagne">
+        <Reveal className="mt-12 -ml-2 flex items-center gap-2">
+          <a href={siteConfig.social.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne">
             <Instagram className="h-6 w-6" />
           </a>
-          <a href={siteConfig.social.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="focus-ring text-ivoire/60 hover:text-champagne">
+          <a href={siteConfig.social.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne">
             <Facebook className="h-6 w-6" />
           </a>
-          <a href={siteConfig.social.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="focus-ring text-ivoire/60 hover:text-champagne">
+          <a href={siteConfig.social.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne">
             <Music2 className="h-6 w-6" />
           </a>
         </Reveal>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import QuoteForm from "@/components/QuoteForm";
 import { siteConfig } from "@/config/site";
 import Reveal from "@/components/Reveal";
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
   description:
     "Décrivez votre événement et recevez une proposition personnalisée de Barman Mobile Group : bar mobile, catering, open grill, location et personnel.",
   alternates: { canonical: "/devis" },
+  openGraph: pageOpenGraph("/devis"),
 };
 
 export default function DevisPage() {

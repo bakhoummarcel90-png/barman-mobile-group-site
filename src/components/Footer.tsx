@@ -16,13 +16,13 @@ export default function Footer() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-ivoire/60">
             {siteConfig.slogan}
           </p>
-          <div className="mt-5 flex gap-4">
+          <div className="mt-5 flex gap-2 -ml-2">
             <a
               href={siteConfig.social.instagram}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram Barman Mobile Group"
-              className="focus-ring text-ivoire/60 hover:text-champagne"
+              className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne"
             >
               <Instagram className="h-5 w-5" />
             </a>
@@ -31,7 +31,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook Barman Mobile Group"
-              className="focus-ring text-ivoire/60 hover:text-champagne"
+              className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne"
             >
               <Facebook className="h-5 w-5" />
             </a>
@@ -40,7 +40,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TikTok Barman Mobile Group"
-              className="focus-ring text-ivoire/60 hover:text-champagne"
+              className="focus-ring rounded-md p-2 text-ivoire/60 hover:text-champagne"
             >
               <Music2 className="h-5 w-5" />
             </a>
@@ -113,7 +113,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-champagne/10 px-5 py-6 text-center text-xs text-ivoire/40">
+      <div className="border-t border-champagne/10 px-5 py-6 text-center text-xs text-ivoire/60">
         © {new Date().getFullYear()} Barman Mobile Group — Tous droits réservés.
       </div>
     </footer>

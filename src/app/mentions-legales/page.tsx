@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Mentions légales",
   description: "Mentions légales de Barman Mobile Group.",
   alternates: { canonical: "/mentions-legales" },
+  openGraph: pageOpenGraph("/mentions-legales"),
   robots: { index: true, follow: true },
 };
 

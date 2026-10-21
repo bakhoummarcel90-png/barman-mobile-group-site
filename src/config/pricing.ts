@@ -33,7 +33,7 @@ export const formules: Formule[] = [
       "Glaçons et consommables",
       "Bar mobile standard",
       "Verrerie standard",
-      " barmans professionnels",
+      "Barmans professionnels", // nombre de barmans à confirmer
       "Installation, service, rangement et démontage",
       "Pause café : une tasse par invité (café classique ou café Touba, sucre et lait)",
     ],
@@ -65,7 +65,7 @@ export const formules: Formule[] = [
       "Glaçons et consommables",
       "Bar mobile premium",
       "Verrerie premium",
-      " barmans professionnels selon la configuration",
+      "Barmans professionnels selon la configuration",
       "Installation, service, rangement et démontage",
       "Pause café signature : une tasse par invité (café classique ou café Touba, sucre et lait)",
     ],

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 import PlaceholderImage from "@/components/PlaceholderImage";
 import StatsCounters from "@/components/StatsCounters";
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
   description:
     "Barman Mobile Group, entreprise événementielle intégrée fondée à Dakar en 2019, réunit bar mobile, catering, open grill, location et personnel événementiel.",
   alternates: { canonical: "/a-propos" },
+  openGraph: pageOpenGraph("/a-propos"),
 };
 
 export default function AProposPage() {

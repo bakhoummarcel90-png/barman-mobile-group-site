@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 import PlaceholderImage from "@/components/PlaceholderImage";
 import Reveal from "@/components/Reveal";
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   description:
     "L'histoire de Marcel Bakhoum, fondateur de Barman Mobile Group : du terrain à l'European Bartender School de Paris, un parcours de persévérance et de professionnalisme.",
   alternates: { canonical: "/notre-histoire" },
+  openGraph: pageOpenGraph("/notre-histoire"),
 };
 
 export default function NotreHistoirePage() {

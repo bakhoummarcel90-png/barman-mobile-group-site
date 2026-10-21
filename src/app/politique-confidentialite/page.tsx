@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Politique de confidentialité",
   description: "Politique de confidentialité et de protection des données de Barman Mobile Group.",
   alternates: { canonical: "/politique-confidentialite" },
+  openGraph: pageOpenGraph("/politique-confidentialite"),
 };
 
 export default function PolitiqueConfidentialitePage() {
@@ -40,7 +42,7 @@ export default function PolitiqueConfidentialitePage() {
           <h2 className="font-display text-xl text-ivoire">Formulaire et WhatsApp</h2>
           <p className="mt-3 text-sm leading-relaxed">
             Notre formulaire de devis peut générer un message prérempli que vous envoyez
-            vous-même vers WhatsApp. Cet envoi est soumis à la politique de confidentialité de
+            vous-même vers WhatsApp ou par e-mail. Cet envoi est soumis à la politique de confidentialité de
             WhatsApp / Meta pour l'acheminement du message.
           </p>
         </div>

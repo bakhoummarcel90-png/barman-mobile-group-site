@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { faqItems } from "@/config/faq";
 import FaqAccordion from "@/components/FaqAccordion";
 import Reveal from "@/components/Reveal";
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   description:
     "Toutes les réponses à vos questions sur les prestations, tarifs et zones d'intervention de Barman Mobile Group.",
   alternates: { canonical: "/faq" },
+  openGraph: pageOpenGraph("/faq"),
 };
 
 export default function FaqPage() {

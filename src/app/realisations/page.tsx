@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import Lightbox from "@/components/Lightbox";
 import Reveal from "@/components/Reveal";
 
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
   description:
     "Découvrez en images les prestations de Barman Mobile Group : bars mobiles, mariages, réceptions d'entreprise et grands événements au Sénégal.",
   alternates: { canonical: "/realisations" },
+  openGraph: pageOpenGraph("/realisations"),
 };
 
 const galleryItems = [
@@ -18,7 +20,7 @@ const galleryItems = [
   { src: "/images/team-barmen.webp", description: "Barmans BMG en uniforme professionnel", aspect: "aspect-square" },
   { src: "/images/gallery/cocktail-tray.webp", description: "Service de cocktails colorés sur plateau", aspect: "aspect-[3/4]" },
   { src: "/images/gallery/cocktail-orange.webp", description: "Cocktail présenté avec une garniture d'orange", aspect: "aspect-square" },
-  { description: "Invités profitant des créations Barman Mobile lors d'une réception", aspect: "aspect-[3/4]" },
+  { src: "/images/gallery/guest-cocktail-man.webp", description: "Invités profitant des créations Barman Mobile lors d'une réception", aspect: "aspect-[3/4]" },
   { src: "/images/gallery/outdoor-bar.webp", description: "Bar mobile installé pour une réception en extérieur", aspect: "aspect-[3/4]" },
   { src: "/images/cocktail-blue.webp", description: "Cocktail créatif bleu et vert servi dans une ambiance festive", aspect: "aspect-square" },
   { src: "/images/bar-display.webp", description: "Bar dressé avec cocktails et verrerie prêts pour les invités", aspect: "aspect-square" },

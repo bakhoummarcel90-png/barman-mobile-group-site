@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { services } from "@/config/services";
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   description:
     "Bar mobile, catering, open grill, location de matériel, décoration événementielle, staffing et expériences : découvrez les sept pôles de services de Barman Mobile Group.",
   alternates: { canonical: "/services" },
+  openGraph: pageOpenGraph("/services"),
 };
 
 export default function ServicesPage() {

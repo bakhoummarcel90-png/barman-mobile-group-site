@@ -26,7 +26,7 @@ export default function FormuleCard({ formule }: { formule: Formule }) {
           </li>
         ))}
       </ul>
-      <p className="mt-5 text-xs text-ivoire/45">Idéal pour : {formule.idealFor}</p>
+      <p className="mt-5 text-xs text-ivoire/65">Idéal pour : {formule.idealFor}</p>
       <p className="mt-1 text-sm text-champagne">
         {formule.priceFromFCFA ? `À partir de ${formule.priceFromFCFA.toLocaleString("fr-FR")} FCFA` : "Tarif sur devis"}
       </p>

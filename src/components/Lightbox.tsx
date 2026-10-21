@@ -18,7 +18,7 @@ export default function Lightbox({ items }: { items: { description: string; aspe
             className="focus-ring block w-full text-left"
             aria-label={`Agrandir : ${item.description}`}
           >
-            <PlaceholderImage description={item.description} src={item.src} aspect={item.aspect} />
+            <PlaceholderImage description={item.description} src={item.src} aspect={item.aspect} priority={i < 2} />
           </button>
         ))}
       </div>

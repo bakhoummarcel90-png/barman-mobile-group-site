@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
 import { formules, facteursDePrix } from "@/config/pricing";
 import FormuleCard from "@/components/FormuleCard";
 import Reveal from "@/components/Reveal";
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   description:
     "Essential, Essential+, Prestige, Signature ou VIP sur mesure : découvrez les formules de Barman Mobile Group et les critères qui déterminent votre devis.",
   alternates: { canonical: "/formules" },
+  openGraph: pageOpenGraph("/formules"),
 };
 
 export default function FormulesPage() {

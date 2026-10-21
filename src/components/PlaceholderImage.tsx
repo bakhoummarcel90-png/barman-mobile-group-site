@@ -37,6 +37,11 @@ export default function PlaceholderImage({
     );
   }
 
+  // En production, aucun encadré « Photo à compléter » n'est montré aux
+  // visiteurs : l'emplacement reste simplement vide tant qu'aucune photo
+  // n'est fournie. L'encadré reste visible en développement (npm run dev).
+  if (process.env.NODE_ENV === "production") return null;
+
   return (
     <div
       className={`flex ${aspect} w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-champagne/30 bg-nuit-light/60 p-6 text-center ${className}`}
