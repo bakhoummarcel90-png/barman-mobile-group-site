@@ -50,7 +50,7 @@ export const siteConfig = {
   social: {
     instagram: "https://www.instagram.com/barman_mobile/",
     facebook: "https://facebook.com/barmanmobile",
-    tiktok: "https://www.tiktok.com/@barmanmobile01",
+    tiktok: "https://www.tiktok.com/@barman_mobile",
   },
 
   // Chiffres clés (confirmés le 21/10/2026) — alimentent les compteurs de l'accueil
