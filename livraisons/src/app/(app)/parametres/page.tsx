@@ -48,10 +48,16 @@ export default async function SettingsPage() {
         <Card title="Intégrations">
           <ul className="space-y-4 text-sm">
             {[
-              ["Wave", "Non connecté. Les paiements Wave sont saisis par le livreur puis confirmés à la main, d'après le relevé Wave Business."],
-              ["Orange Money", "Non connecté. Les paiements Orange Money sont saisis par le livreur puis confirmés à la main, d'après le relevé marchand."],
+              [
+                country.paymentMethods.filter((m) => m.kind !== "cash").map((m) => m.label).join(", ") || "Mobile money",
+                "Non connectés. Les paiements sont saisis par le livreur puis confirmés à la main, d'après le relevé de chaque opérateur.",
+              ],
               ["SMS", "Aucun service d'envoi configuré. Les boutons « SMS » ouvrent l'application Messages du téléphone avec un texte prérempli."],
               ["WhatsApp", "Aucune API configurée. Les boutons « WhatsApp » ouvrent WhatsApp (wa.me) avec un texte prérempli ; l'envoi reste manuel."],
+              [
+                "Transporteurs internationaux",
+                "Non connectés (DHL, FedEx, UPS, compagnies aériennes et maritimes). Les étapes des colis sont saisies à la main ; un lien vers le site du transporteur est proposé pour DHL, FedEx et UPS.",
+              ],
             ].map(([name, text]) => (
               <li key={name} className="flex items-start gap-3">
                 <span className="mt-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
@@ -66,8 +72,8 @@ export default async function SettingsPage() {
             ))}
           </ul>
           <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-ink-muted">
-            Une intégration automatique demande un contrat marchand et des clés API fournies par chaque opérateur (Wave Business, Orange Money,
-            fournisseur SMS ou WhatsApp Business). Aucune connexion n'est simulée dans cette version : voir le fichier README pour les paramètres à prévoir.
+            Une intégration automatique demande un contrat marchand et des clés API fournies par chaque opérateur (opérateurs de mobile money,
+            fournisseur SMS, WhatsApp Business, transporteurs). Aucune connexion n'est simulée dans cette version : voir le fichier README pour les paramètres à prévoir.
           </p>
         </Card>
 

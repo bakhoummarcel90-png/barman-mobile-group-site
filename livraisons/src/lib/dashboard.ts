@@ -3,6 +3,7 @@ import { all, get } from "./db";
 import { filterSql, type DeliveryFilters } from "./filters";
 import { courierBalances, merchantBalances } from "./finance";
 import { getCountry } from "./regions";
+import { shipmentCounts } from "./shipments";
 import { deliveryScope } from "./scope";
 import type { Actor } from "./types";
 
@@ -87,6 +88,9 @@ function actionsFor(actor: Actor): DashboardAction[] {
     const holders = courierBalances(actor).length;
     if (holders)
       out.push({ label: "Livreurs avec de l'argent à remettre", detail: "Enregistrez les remises à la caisse", count: holders, href: "/encaissements#livreurs", tone: "info" });
+    const colis = shipmentCounts(actor);
+    if (colis.arrived)
+      out.push({ label: "Colis internationaux arrivés", detail: "Organisez la livraison au destinataire", count: colis.arrived, href: "/colis?statut=actifs&sens=import", tone: "warning" });
     const payees = merchantBalances(actor).filter((m) => m.net !== 0).length;
     if (payees) out.push({ label: "Commerçants à payer", detail: "Encaissements confirmés à reverser", count: payees, href: "/encaissements#commercants", tone: "info" });
   } else if (actor.role === "merchant") {
@@ -95,6 +99,8 @@ function actionsFor(actor: Actor): DashboardAction[] {
       out.push({ label: "Livraisons en échec", detail: "Le livreur n'a pas pu livrer : un retour ou une nouvelle tentative est prévu", count: failed, href: "/commandes?statut=echec", tone: "danger" });
     const waiting = count("d.status = 'a_attribuer'");
     if (waiting) out.push({ label: "En attente d'un livreur", detail: "L'entreprise de livraison va attribuer ces commandes", count: waiting, href: "/commandes?statut=a_attribuer", tone: "info" });
+    const colis = shipmentCounts(actor);
+    if (colis.active) out.push({ label: "Colis internationaux en cours", detail: "Suivez leurs étapes", count: colis.active, href: "/colis?statut=actifs", tone: "info" });
     const gaps = count("d.payment_status = 'ecart'");
     if (gaps) out.push({ label: "Écarts d'encaissement", detail: "Montant collecté différent du prix de la commande", count: gaps, href: "/encaissements", tone: "warning" });
   }

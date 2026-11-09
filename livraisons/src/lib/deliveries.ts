@@ -12,6 +12,7 @@ import { filterSql, type DeliveryFilters } from "./filters";
 import { formatMoney, isoToLocalInput, localInputToIso, normalizePhone, parseAmount, todayLocal } from "./format";
 import { getCountry, isValidPaymentMethod, paymentMethodLabel, type CountryConfig } from "./regions";
 import { deliveryScope } from "./scope";
+import { onLocalDeliveryCreated, onLocalDeliveryDone } from "./shipments";
 import type { Actor, Delivery, DeliveryView } from "./types";
 import { optional, str, UserError, type FieldErrors } from "./validation";
 
@@ -110,6 +111,8 @@ export interface DeliveryInput {
   deliveryFee: number;
   notes: string | null;
   scheduledAt: string | null;
+  /** Colis international lié (dernier kilomètre), administrateur uniquement. */
+  shipmentId: number | null;
 }
 
 /** Valide le formulaire. Les messages d'erreur sont prêts à afficher. */
@@ -143,7 +146,7 @@ export function parseDeliveryForm(
   const customerPhone = normalizePhone(rawPhone, country);
   if (!rawPhone) errors.customer_phone = "Indiquez le téléphone du client.";
   else if (!customerPhone)
-    errors.customer_phone = `Numéro invalide : ${country.nationalNumberLength} chiffres attendus, par ex. 77 123 45 67.`;
+    errors.customer_phone = `Numéro invalide : ${country.nationalNumberLength} chiffres attendus (par ex. ${country.phoneExample}), ou numéro étranger avec son indicatif (+33…).`;
 
   const address = str(fd, "address");
   if (address.length < 4) errors.address = "Indiquez l'adresse complète (rue, villa, immeuble…).";
@@ -174,9 +177,13 @@ export function parseDeliveryForm(
   if ((accessNotes?.length ?? 0) > 500) errors.access_notes = "500 caractères maximum.";
   if ((notes?.length ?? 0) > 1000) errors.notes = "1000 caractères maximum.";
 
+  const shipmentRaw = actor.role === "admin" ? str(fd, "shipment_id") : "";
+  const shipmentId = /^\d+$/.test(shipmentRaw) ? Number(shipmentRaw) : null;
+
   if (Object.keys(errors).length) return { data: null, errors };
   return {
     data: {
+      shipmentId,
       reference,
       merchantId,
       courierId,
@@ -266,8 +273,8 @@ export function createDelivery(actor: Actor, input: DeliveryInput): number {
     const { id } = run(
       `INSERT INTO deliveries (company_id, reference, merchant_id, courier_id, customer_name, customer_phone, address,
          neighborhood, access_notes, amount_to_collect, expected_payment_method, delivery_fee, notes, scheduled_at,
-         status, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, created_by, created_at, updated_at, shipment_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       actor.companyId,
       reference,
       merchantId,
@@ -286,8 +293,17 @@ export function createDelivery(actor: Actor, input: DeliveryInput): number {
       actor.id,
       now,
       now,
+      input.shipmentId,
     );
-    logEvent({ companyId: actor.companyId, userId: actor.id, deliveryId: id, kind: "created", toStatus: "a_attribuer", message: "Commande créée" });
+    if (input.shipmentId) onLocalDeliveryCreated(actor, input.shipmentId, reference);
+    logEvent({
+      companyId: actor.companyId,
+      userId: actor.id,
+      deliveryId: id,
+      kind: "created",
+      toStatus: "a_attribuer",
+      message: input.shipmentId ? "Commande créée pour la livraison d'un colis international" : "Commande créée",
+    });
     if (courierName)
       logEvent({
         companyId: actor.companyId,
@@ -516,6 +532,8 @@ export function changeStatus(actor: Actor, id: number, change: StatusChange): vo
 
     run(`UPDATE deliveries SET ${sets.join(", ")} WHERE id = ?`, ...params, id);
     logEvent({ companyId: actor.companyId, userId: actor.id, deliveryId: id, kind: "status", fromStatus: d.status, toStatus: to, message });
+    // Colis international : la remise au destinataire clôture aussi son suivi.
+    if (to === "livree" && d.shipment_id) onLocalDeliveryDone(actor.companyId, actor.id, d.shipment_id);
     if (change.proofPhoto)
       logEvent({ companyId: actor.companyId, userId: actor.id, deliveryId: id, kind: "photo", message: "Photo de preuve ajoutée" });
   });

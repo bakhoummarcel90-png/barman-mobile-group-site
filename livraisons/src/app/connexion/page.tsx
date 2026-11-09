@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
@@ -28,6 +29,12 @@ export default async function LoginPage() {
         <div className="card p-5 sm:p-6">
           <LoginForm />
         </div>
+        <p className="mt-3 text-center text-sm">
+          Vous attendez un colis ?{" "}
+          <Link href="/suivi" className="link">
+            Suivre mon colis
+          </Link>
+        </p>
 
         {demo ? (
           <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">

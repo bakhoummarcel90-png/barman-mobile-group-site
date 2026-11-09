@@ -17,7 +17,7 @@ export default async function NewMerchantPage() {
         back={{ href: "/commercants", label: "Commerçants" }}
       />
       <div className="card p-4 sm:p-5">
-        <MerchantForm paymentMethods={country.paymentMethods} neighborhoods={country.neighborhoods} />
+        <MerchantForm paymentMethods={country.paymentMethods} neighborhoods={country.neighborhoods} phoneExample={country.phoneExample} />
       </div>
     </>
   );

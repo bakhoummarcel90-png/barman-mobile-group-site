@@ -87,3 +87,43 @@ export function isDeliveryStatus(v: unknown): v is DeliveryStatus {
 export function isPaymentStatus(v: unknown): v is PaymentStatus {
   return typeof v === "string" && (PAYMENT_STATUSES as readonly string[]).includes(v);
 }
+
+/* ---------- Colis internationaux ---------- */
+
+export const SHIPMENT_STATUSES = [
+  "enregistre",
+  "recu_origine",
+  "en_transit",
+  "arrive_destination",
+  "douane",
+  "pret",
+  "livre",
+  "incident",
+  "annule",
+] as const;
+export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
+
+export const SHIPMENT_STATUS_LABELS: Record<ShipmentStatus, string> = {
+  enregistre: "Enregistré",
+  recu_origine: "Reçu au point de départ",
+  en_transit: "En transit international",
+  arrive_destination: "Arrivé dans le pays de destination",
+  douane: "En dédouanement",
+  pret: "Prêt pour livraison ou retrait",
+  livre: "Livré",
+  incident: "Incident / en attente",
+  annule: "Annulé",
+};
+
+export const SHIPMENT_FINAL: ShipmentStatus[] = ["livre", "annule"];
+
+export const TRANSPORT_MODES: Record<string, string> = {
+  aerien: "Aérien",
+  express: "Express (DHL, FedEx, UPS…)",
+  maritime: "Maritime",
+  routier: "Routier",
+};
+
+export function isShipmentStatus(v: unknown): v is ShipmentStatus {
+  return typeof v === "string" && (SHIPMENT_STATUSES as readonly string[]).includes(v);
+}

@@ -10,12 +10,13 @@ import {
   recordLoginFailure,
   requireUser,
 } from "@/lib/auth";
-import { isDeliveryStatus, isPaymentStatus } from "@/lib/constants";
+import { isDeliveryStatus, isPaymentStatus, isShipmentStatus } from "@/lib/constants";
 import * as deliveries from "@/lib/deliveries";
 import { recordCourierRemittance, recordMerchantPayout } from "@/lib/finance";
 import { formatMoney, normalizePhone, parseAmount } from "@/lib/format";
 import { verifyPassword } from "@/lib/password";
 import * as people from "@/lib/people";
+import * as shipments from "@/lib/shipments";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
 import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
 import { savePhoto } from "@/lib/storage";
@@ -360,7 +361,7 @@ export async function companyAction(_: FormState, fd: FormData): Promise<FormSta
   const actor = await requireUser(["admin"]);
   const rawPhone = str(fd, "phone");
   const phone = rawPhone ? normalizePhone(rawPhone, getCountry(actor.countryCode)) : null;
-  if (rawPhone && !phone) return invalid({ phone: "Numéro invalide, par ex. 33 800 00 00." }, fd);
+  if (rawPhone && !phone) return invalid({ phone: `Numéro invalide, par ex. ${getCountry(actor.countryCode).phoneExample}.` }, fd);
   try {
     people.updateCompany(actor, str(fd, "name"), phone);
   } catch (err) {
@@ -368,4 +369,43 @@ export async function companyAction(_: FormState, fd: FormData): Promise<FormSta
   }
   refresh();
   return { ok: true, message: "Informations de l'entreprise enregistrées." };
+}
+
+/* ------------------------------------------------------------------ */
+/* Colis internationaux                                                 */
+/* ------------------------------------------------------------------ */
+
+export async function saveShipmentAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin", "merchant"]);
+  const parsed = shipments.parseShipmentForm(fd, actor);
+  if (!parsed.data) return invalid(parsed.errors, fd);
+  const existing = str(fd, "id");
+  let id: number;
+  try {
+    if (existing) {
+      id = idFrom(fd);
+      shipments.updateShipment(actor, id, parsed.data);
+    } else {
+      id = shipments.createShipment(actor, parsed.data);
+    }
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/colis/${id}?ok=${existing ? "modifie" : "cree"}`);
+}
+
+export async function shipmentStatusAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const status = str(fd, "status");
+  if (!isShipmentStatus(status)) return invalid({ status: "Choisissez une étape." }, fd);
+  let id: number;
+  try {
+    id = idFrom(fd);
+    shipments.changeShipmentStatus(actor, id, { status, location: optional(fd, "location"), note: optional(fd, "note") });
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/colis/${id}?ok=etape`);
 }

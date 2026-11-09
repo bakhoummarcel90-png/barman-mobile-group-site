@@ -38,23 +38,33 @@ export function parseAmount(raw: unknown): number | null {
 export function normalizePhone(raw: unknown, country: CountryConfig = getCountry(null)): string | null {
   if (typeof raw !== "string") return null;
   let digits = raw.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) digits = digits.slice(1);
-  else if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.length === country.dialCode.length + country.nationalNumberLength && digits.startsWith(country.dialCode)) {
-    digits = digits.slice(country.dialCode.length);
+  let international = false;
+  if (digits.startsWith("+")) {
+    digits = digits.slice(1);
+    international = true;
+  } else if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+    international = true;
   }
-  if (!/^\d+$/.test(digits) || digits.length !== country.nationalNumberLength) return null;
-  return `+${country.dialCode}${digits}`;
+  if (!/^\d+$/.test(digits)) return null;
+  if (digits.length === country.dialCode.length + country.nationalNumberLength && digits.startsWith(country.dialCode)) {
+    return `+${digits}`;
+  }
+  if (!international && digits.length === country.nationalNumberLength) return `+${country.dialCode}${digits}`;
+  // Numéro étranger saisi avec son indicatif (+33…, +1…, +86…) : format international générique.
+  if (international && digits.length >= 8 && digits.length <= 15 && !digits.startsWith(country.dialCode)) return `+${digits}`;
+  return null;
 }
 
 /** « +221771234567 » → « 77 123 45 67 ». */
 export function formatPhone(phone: string | null | undefined, country: CountryConfig = getCountry(null)): string {
   if (!phone) return "—";
   const prefix = `+${country.dialCode}`;
-  if (!phone.startsWith(prefix)) return phone;
+  if (!phone.startsWith(prefix) || phone.length !== prefix.length + country.nationalNumberLength) return phone;
   const n = phone.slice(prefix.length);
-  if (n.length === 9) return `${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5, 7)} ${n.slice(7)}`;
-  return n;
+  // Sénégal : 77 123 45 67 ; autres pays : groupes de deux chiffres.
+  if (country.code === "SN") return `${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5, 7)} ${n.slice(7)}`;
+  return n.replace(/(\d{2})(?=\d)/g, "$1 ");
 }
 
 /** Numéro pour les liens wa.me (chiffres uniquement, avec indicatif). */

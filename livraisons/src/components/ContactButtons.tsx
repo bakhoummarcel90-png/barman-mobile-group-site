@@ -13,12 +13,15 @@ export function ContactButtons({
   delivery,
   size = "normal",
   showMap = false,
+  city,
 }: {
   phone: string;
   message: string;
   delivery?: Pick<DeliveryView, "address" | "neighborhood">;
   size?: "normal" | "large";
   showMap?: boolean;
+  /** Ville de l'entreprise, ajoutée à l'adresse pour l'itinéraire. */
+  city?: string;
 }) {
   const cls = cx("btn-secondary", size === "large" ? "btn-lg flex-1" : "btn-sm");
   return (
@@ -33,7 +36,7 @@ export function ContactButtons({
         <MessageSquare className="h-4 w-4" aria-hidden /> SMS
       </a>
       {showMap && delivery ? (
-        <a href={mapsLink(delivery)} target="_blank" rel="noopener noreferrer" className={cls}>
+        <a href={mapsLink(delivery, city)} target="_blank" rel="noopener noreferrer" className={cls}>
           <MapPinned className="h-4 w-4 text-sky-600" aria-hidden /> Itinéraire
         </a>
       ) : null}

@@ -133,6 +133,7 @@ export default async function DeliveryPage({
                   delivery={d}
                   size={role === "courier" ? "large" : "normal"}
                   showMap={role !== "merchant"}
+                  city={country.city}
                 />
                 {role === "courier" && d.status === "en_cours" ? (
                   <a href={whatsappLink(d.customer_phone, msgCantFind(d, user.name))} target="_blank" rel="noopener noreferrer" className="link mt-2 inline-flex items-center gap-1 text-sm">
@@ -181,6 +182,16 @@ export default async function DeliveryPage({
             <DefinitionList
               items={[
                 ["Date prévue", d.scheduled_at ? formatDateTime(d.scheduled_at, country) : "Non précisée"],
+                ...(d.shipment_id && role !== "courier"
+                  ? ([
+                      [
+                        "Colis international",
+                        <Link key="colis" href={`/colis/${d.shipment_id}`} className="link">
+                          Voir le suivi du colis
+                        </Link>,
+                      ],
+                    ] as [string, React.ReactNode][])
+                  : []),
                 ["Commerçant", d.merchant_name],
                 ["Livreur", d.courier_name ?? "Non attribué"],
                 ["Départ", formatDateTime(d.started_at, country)],

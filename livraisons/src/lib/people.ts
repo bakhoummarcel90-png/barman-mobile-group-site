@@ -3,7 +3,7 @@ import { all, get, run, transaction, type SqlValue } from "./db";
 import { logEvent } from "./events";
 import { localInputToIso, normalizePhone, todayLocal } from "./format";
 import { generatePassword, hashPassword, verifyPassword } from "./password";
-import { getCountry, isValidPaymentMethod } from "./regions";
+import { COUNTRIES, getCountry, isValidPaymentMethod } from "./regions";
 import type { Role } from "./constants";
 import type { Actor, Merchant, UserRow } from "./types";
 import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } from "./validation";
@@ -53,7 +53,7 @@ export function parseCourierForm(fd: FormData, actor: Actor, creating: boolean):
   if (name.length < 2) errors.name = "Indiquez le nom complet du livreur.";
   const rawPhone = str(fd, "phone");
   const phone = normalizePhone(rawPhone, country);
-  if (!phone) errors.phone = rawPhone ? "Numéro invalide, par ex. 77 123 45 67." : "Le téléphone est obligatoire (il sert à se connecter).";
+  if (!phone) errors.phone = rawPhone ? `Numéro invalide, par ex. ${country.phoneExample}.` : "Le téléphone est obligatoire (il sert à se connecter).";
   const email = optional(fd, "email")?.toLowerCase() ?? null;
   if (email && !isEmail(email)) errors.email = "Adresse e-mail invalide.";
   const vehicle = optional(fd, "vehicle");
@@ -169,13 +169,13 @@ export function parseMerchantForm(fd: FormData, actor: Actor, creating: boolean)
   if (contactName.length < 2) errors.contact_name = "Indiquez le nom du responsable.";
   const rawPhone = str(fd, "phone");
   const phone = normalizePhone(rawPhone, country);
-  if (!phone) errors.phone = rawPhone ? "Numéro invalide, par ex. 77 123 45 67." : "Le téléphone est obligatoire (il sert à se connecter).";
+  if (!phone) errors.phone = rawPhone ? `Numéro invalide, par ex. ${country.phoneExample}.` : "Le téléphone est obligatoire (il sert à se connecter).";
   const email = optional(fd, "email")?.toLowerCase() ?? null;
   if (email && !isEmail(email)) errors.email = "Adresse e-mail invalide.";
   const payoutMethod = optional(fd, "payout_method");
   if (payoutMethod && !isValidPaymentMethod(country, payoutMethod)) errors.payout_method = "Moyen de reversement invalide.";
   let payoutAccount = optional(fd, "payout_account");
-  if (payoutAccount && payoutMethod && payoutMethod !== "cash") {
+  if (payoutAccount && payoutMethod && country.paymentMethods.find((m) => m.code === payoutMethod)?.kind === "mobile_money") {
     const n = normalizePhone(payoutAccount, country);
     if (!n) errors.payout_account = "Numéro Wave / Orange Money invalide.";
     else payoutAccount = n;
@@ -400,7 +400,7 @@ export function parseAdminForm(fd: FormData, actor: Actor): { data: AdminInput |
   if (email && !isEmail(email)) errors.email = "Adresse e-mail invalide.";
   const rawPhone = str(fd, "phone");
   const phone = rawPhone ? normalizePhone(rawPhone, country) : null;
-  if (rawPhone && !phone) errors.phone = "Numéro invalide, par ex. 77 123 45 67.";
+  if (rawPhone && !phone) errors.phone = `Numéro invalide, par ex. ${country.phoneExample}.`;
   if (!email && !rawPhone) errors.email = "Indiquez au moins un e-mail ou un téléphone pour la connexion.";
   const password = initialPassword(fd, errors);
   if (Object.keys(errors).length) return { data: null, errors };
@@ -430,17 +430,18 @@ export function updateCompany(actor: Actor, name: string, phone: string | null):
   run("UPDATE companies SET name = ?, phone = ? WHERE id = ?", name.trim(), phone, actor.companyId);
 }
 
-/** Recherche d'un compte pour la connexion (e-mail ou téléphone). */
+/** Recherche d'un compte pour la connexion (e-mail, ou téléphone de n'importe quel pays configuré). */
 export function findLoginUser(identifier: string): (UserRow & { merchant_active: number | null }) | undefined {
   const id = identifier.trim().toLowerCase();
-  const phone = normalizePhone(identifier, getCountry(null));
-  const params: SqlValue[] = [id];
-  let sql = `SELECT u.*, m.active AS merchant_active FROM users u LEFT JOIN merchants m ON m.id = u.merchant_id WHERE u.email = ?`;
-  if (phone) {
-    sql += " OR u.phone = ?";
-    params.push(phone);
+  const phones = new Set<string>();
+  for (const c of Object.values(COUNTRIES)) {
+    const n = normalizePhone(identifier, c);
+    if (n) phones.add(n);
   }
-  return get(sql + " LIMIT 1", ...params);
+  const params: SqlValue[] = [id, ...phones];
+  let sql = `SELECT u.*, m.active AS merchant_active FROM users u LEFT JOIN merchants m ON m.id = u.merchant_id WHERE u.email = ?`;
+  if (phones.size) sql += ` OR u.phone IN (${[...phones].map(() => "?").join(", ")})`;
+  return get(sql + " ORDER BY u.active DESC LIMIT 1", ...params);
 }
 
 export type { Role };

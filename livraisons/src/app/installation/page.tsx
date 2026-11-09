@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Truck } from "lucide-react";
+import { countryOptions } from "@/lib/regions";
 import { needsSetup, setupCodeRequired } from "@/lib/setup";
 import { SetupForm } from "./SetupForm";
 
@@ -22,7 +23,7 @@ export default function SetupPage() {
           </p>
         </div>
         <div className="card p-5 sm:p-6">
-          <SetupForm codeRequired={setupCodeRequired()} />
+          <SetupForm codeRequired={setupCodeRequired()} countries={countryOptions()} />
         </div>
       </div>
     </main>

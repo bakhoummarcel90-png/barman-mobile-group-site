@@ -22,6 +22,9 @@ export function DeliveryForm({
   currencyLabel,
   isAdmin,
   courierLocked,
+  phoneExample,
+  city,
+  shipmentId,
 }: {
   id?: number;
   defaults?: Record<string, string>;
@@ -33,6 +36,10 @@ export function DeliveryForm({
   isAdmin: boolean;
   /** La course a démarré : le livreur ne peut plus être changé depuis ce formulaire. */
   courierLocked?: boolean;
+  phoneExample: string;
+  city: string;
+  /** Livraison locale d'un colis international. */
+  shipmentId?: number;
 }) {
   const [state, action] = useActionState(saveDeliveryAction, {});
   const p = (name: string) => inputProps(name, state, defaults);
@@ -41,6 +48,7 @@ export function DeliveryForm({
   return (
     <form action={action} className="space-y-5" noValidate>
       {id ? <input type="hidden" name="id" value={id} /> : null}
+      {shipmentId ? <input type="hidden" name="shipment_id" value={shipmentId} /> : null}
       <FormMessage state={state} />
 
       <section className="card space-y-4 p-4 sm:p-5">
@@ -63,7 +71,7 @@ export function DeliveryForm({
               </select>
             </Field>
           ) : null}
-          <Field label="Date et heure prévues" name="scheduled_at" error={e("scheduled_at")} hint="Heure de Dakar.">
+          <Field label="Date et heure prévues" name="scheduled_at" error={e("scheduled_at")} hint={`Heure locale (${city}).`}>
             <input {...p("scheduled_at")} type="datetime-local" />
           </Field>
           {isAdmin ? (
@@ -96,7 +104,7 @@ export function DeliveryForm({
             <input {...p("customer_name")} autoComplete="off" />
           </Field>
           <Field label="Téléphone du client" name="customer_phone" error={e("customer_phone")} required>
-            <input {...p("customer_phone")} type="tel" inputMode="tel" placeholder="77 123 45 67" />
+            <input {...p("customer_phone")} type="tel" inputMode="tel" placeholder={phoneExample} />
           </Field>
           <Field label="Adresse complète" name="address" error={e("address")} required className="sm:col-span-2">
             <input {...p("address")} placeholder="Rue, villa, immeuble, étage…" />

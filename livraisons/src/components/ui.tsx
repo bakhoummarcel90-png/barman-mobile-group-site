@@ -5,12 +5,20 @@ import {
   CheckCircle2,
   CircleDashed,
   Inbox,
+  Package,
   Undo2,
   UserCheck,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { PAYMENT_STATUS_LABELS, STATUS_LABELS, type DeliveryStatus, type PaymentStatus } from "@/lib/constants";
+import {
+  PAYMENT_STATUS_LABELS,
+  SHIPMENT_STATUS_LABELS,
+  STATUS_LABELS,
+  type DeliveryStatus,
+  type PaymentStatus,
+  type ShipmentStatus,
+} from "@/lib/constants";
 
 export function cx(...c: (string | false | null | undefined)[]): string {
   return c.filter(Boolean).join(" ");
@@ -178,5 +186,26 @@ export function OkBanner({ code, messages }: { code: string | string[] | undefin
     <div className="mb-4">
       <Alert tone="success">{messages[key]}</Alert>
     </div>
+  );
+}
+
+const SHIPMENT_STYLE: Record<ShipmentStatus, string> = {
+  enregistre: "bg-slate-100 text-slate-700 ring-slate-200",
+  recu_origine: "bg-sky-50 text-sky-800 ring-sky-200",
+  en_transit: "bg-violet-50 text-violet-800 ring-violet-200",
+  arrive_destination: "bg-indigo-50 text-indigo-800 ring-indigo-200",
+  douane: "bg-amber-50 text-amber-800 ring-amber-200",
+  pret: "bg-teal-50 text-teal-800 ring-teal-200",
+  livre: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+  incident: "bg-red-50 text-red-800 ring-red-200",
+  annule: "bg-slate-100 text-slate-500 ring-slate-200",
+};
+
+export function ShipmentBadge({ status }: { status: ShipmentStatus }) {
+  return (
+    <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset", SHIPMENT_STYLE[status])}>
+      <Package className="h-3.5 w-3.5" aria-hidden />
+      {SHIPMENT_STATUS_LABELS[status]}
+    </span>
   );
 }

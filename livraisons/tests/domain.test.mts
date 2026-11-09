@@ -56,6 +56,7 @@ function input(over: Partial<import("../src/lib/deliveries").DeliveryInput> = {}
     deliveryFee: 2000,
     notes: null,
     scheduledAt: null,
+    shipmentId: null,
     ...over,
   };
 }
@@ -215,5 +216,73 @@ describe("comptes", () => {
     P.setMerchantActive(admin, merchant2Id, false);
     assert.throws(() => D.createDelivery(admin, input({ merchantId: merchant2Id })), /désactivé/);
     P.setMerchantActive(admin, merchant2Id, true);
+  });
+});
+
+describe("pays d'Afrique de l'Ouest", () => {
+  test("numéros nationaux et étrangers", async () => {
+    const { getCountry } = await import("../src/lib/regions");
+    assert.equal(normalizePhone("07 12 34 56 78", getCountry("CI")), "+2250712345678");
+    assert.equal(normalizePhone("76 12 34 56", getCountry("ML")), "+22376123456");
+    assert.equal(normalizePhone("+33 6 12 34 56 78"), "+33612345678", "numéro français accepté avec son indicatif");
+    assert.equal(normalizePhone("06 12 34 56 78"), null, "sans indicatif, un numéro étranger est refusé");
+  });
+  test("connexion avec un numéro d'un autre pays", async () => {
+    const { findLoginUser } = await import("../src/lib/people");
+    const ci = run("INSERT INTO companies (name, country_code, currency, timezone) VALUES ('Abidjan Express', 'CI', 'XOF', 'Africa/Abidjan')").id;
+    run("INSERT INTO users (company_id, role, name, phone, password_hash) VALUES (?, 'admin', 'Kouadio', '+2250712345678', ?)", ci, hashPassword("motdepasse"));
+    assert.equal(findLoginUser("07 12 34 56 78")?.name, "Kouadio");
+  });
+});
+
+describe("colis internationaux", async () => {
+  const S = await import("../src/lib/shipments");
+  const base = (over: Partial<import("../src/lib/shipments").ShipmentInput> = {}) => ({
+    merchantId: null, clientReference: null, transportMode: "aerien", carrier: "DHL", carrierTracking: "123",
+    originCountry: "FR", originCity: "Paris", destinationCountry: "SN", destinationCity: "Dakar",
+    senderName: "Expéditeur", senderPhone: "+33612345678", recipientName: "Destinataire", recipientPhone: "+221700000088",
+    recipientAddress: "Mermoz", description: "Vêtements", pieces: 1, weightGrams: 2500, declaredValue: 100, declaredCurrency: "EUR",
+    shippingFee: 15000, feePaid: false, estimatedArrival: null, notes: "note interne secrète", ...over,
+  });
+
+  test("création, étapes, suivi public sans données personnelles", () => {
+    const id = S.createShipment(admin, base());
+    const s = S.getShipment(admin, id)!;
+    assert.match(s.tracking_number, /^SL[A-Z0-9]{8}$/);
+    S.changeShipmentStatus(admin, id, { status: "en_transit", location: "Aéroport CDG", note: "interne" });
+    assert.throws(() => S.changeShipmentStatus(admin, id, { status: "incident", location: null, note: null }), /Décrivez/);
+    assert.throws(() => S.changeShipmentStatus(merchant, id, { status: "livre", location: null, note: null }));
+    const pub = S.publicTracking(s.tracking_number.toLowerCase())!;
+    assert.equal(pub.status, "en_transit");
+    assert.equal(pub.events.length, 2);
+    const json = JSON.stringify(pub);
+    assert.ok(!json.includes("Destinataire") && !json.includes("+221700000088") && !json.includes("interne"), "aucune donnée personnelle ni note");
+    assert.equal(S.publicTracking("SLXXXXXXXX"), null);
+  });
+
+  test("isolation : commerçant, autre entreprise, livreur", () => {
+    const own = S.createShipment(merchant, base({ merchantId: merchant2Id }));
+    assert.equal(S.getShipment(merchant, own)!.merchant_id, merchantId, "le commerçant ne peut créer que pour sa boutique");
+    assert.equal(S.getShipment(merchant2, own), null);
+    assert.equal(S.getShipment(adminB, own), null);
+    assert.equal(S.getShipment(courier, own), null);
+  });
+
+  test("livraison locale : le colis passe à « Livré »", () => {
+    const id = S.createShipment(admin, base());
+    S.changeShipmentStatus(admin, id, { status: "arrive_destination", location: "Dakar", note: null });
+    const deliveryId = D.createDelivery(admin, input({ courierId: courier.id, amountToCollect: 15000, shipmentId: id }));
+    assert.equal(S.getShipment(admin, id)!.status, "pret");
+    assert.equal(S.getShipment(admin, id)!.delivery_id, deliveryId);
+    D.changeStatus(courier, deliveryId, { to: "en_cours" });
+    D.changeStatus(courier, deliveryId, { to: "livree", collectedAmount: 15000, collectedMethod: "cash" });
+    assert.equal(S.getShipment(admin, id)!.status, "livre");
+    assert.throws(() => S.changeShipmentStatus(admin, id, { status: "en_transit", location: null, note: null }), /clôturé/);
+  });
+
+  test("poids et numéros de suivi", () => {
+    assert.equal(S.parseWeight("2,5"), 2500);
+    assert.equal(S.parseWeight("abc"), null);
+    assert.equal(S.normalizeTrackingNumber(" sl7kq-2m9xa "), "SL7KQ2M9XA");
   });
 });

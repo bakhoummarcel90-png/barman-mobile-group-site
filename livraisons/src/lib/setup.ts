@@ -3,7 +3,7 @@ import { get, run, transaction } from "./db";
 import { logEvent } from "./events";
 import { normalizePhone } from "./format";
 import { hashPassword } from "./password";
-import { DEFAULT_COUNTRY, getCountry } from "./regions";
+import { COUNTRIES, DEFAULT_COUNTRY, getCountry } from "./regions";
 import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } from "./validation";
 
 /**
@@ -29,6 +29,7 @@ function codeMatches(given: string): boolean {
 }
 
 export interface SetupInput {
+  countryCode: string;
   companyName: string;
   companyPhone: string | null;
   adminName: string;
@@ -38,35 +39,37 @@ export interface SetupInput {
 }
 
 export function parseSetupForm(fd: FormData): { data: SetupInput | null; errors: FieldErrors } {
-  const country = getCountry(DEFAULT_COUNTRY);
   const errors: FieldErrors = {};
+  const countryCode = str(fd, "country") || DEFAULT_COUNTRY;
+  if (!COUNTRIES[countryCode]) errors.country = "Choisissez le pays de votre entreprise.";
+  const country = getCountry(countryCode);
   if (setupCodeRequired() && !codeMatches(str(fd, "setup_code"))) errors.setup_code = "Code d'installation incorrect.";
   const companyName = str(fd, "company_name");
   if (companyName.length < 2) errors.company_name = "Indiquez le nom de votre entreprise de livraison.";
   const rawCompanyPhone = str(fd, "company_phone");
   const companyPhone = rawCompanyPhone ? normalizePhone(rawCompanyPhone, country) : null;
-  if (rawCompanyPhone && !companyPhone) errors.company_phone = "Numéro invalide, par ex. 33 800 00 00.";
+  if (rawCompanyPhone && !companyPhone) errors.company_phone = `Numéro invalide, par ex. ${country.phoneExample}.`;
   const adminName = str(fd, "admin_name");
   if (adminName.length < 2) errors.admin_name = "Indiquez votre nom.";
   const email = optional(fd, "email")?.toLowerCase() ?? null;
   if (email && !isEmail(email)) errors.email = "Adresse e-mail invalide.";
   const rawPhone = str(fd, "phone");
   const phone = rawPhone ? normalizePhone(rawPhone, country) : null;
-  if (rawPhone && !phone) errors.phone = "Numéro invalide, par ex. 77 123 45 67.";
+  if (rawPhone && !phone) errors.phone = `Numéro invalide, par ex. ${country.phoneExample}.`;
   if (!email && !rawPhone) errors.email = "Indiquez un e-mail ou un téléphone : il servira à vous connecter.";
   const password = typeof fd.get("password") === "string" ? (fd.get("password") as string) : "";
   const confirm = typeof fd.get("confirm_password") === "string" ? (fd.get("confirm_password") as string) : "";
   if (password.length < PASSWORD_MIN) errors.password = `Au moins ${PASSWORD_MIN} caractères.`;
   else if (password !== confirm) errors.confirm_password = "Les deux mots de passe ne correspondent pas.";
   if (Object.keys(errors).length) return { data: null, errors };
-  return { data: { companyName, companyPhone, adminName, email, phone, password }, errors };
+  return { data: { countryCode, companyName, companyPhone, adminName, email, phone, password }, errors };
 }
 
 /** Crée l'entreprise et son administrateur ; renvoie l'identifiant du compte. */
 export function runSetup(input: SetupInput): number {
   return transaction(() => {
     if (!needsSetup()) throw new UserError("L'application est déjà installée : connectez-vous.");
-    const country = getCountry(DEFAULT_COUNTRY);
+    const country = getCountry(input.countryCode);
     const company = run(
       "INSERT INTO companies (name, country_code, currency, timezone, phone) VALUES (?, ?, ?, ?, ?)",
       input.companyName,
