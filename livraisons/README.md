@@ -163,6 +163,17 @@ Cette page ne fonctionne qu'une fois (tant qu'aucun compte n'existe). En ligne, 
 **`SETUP_CODE`** (un code secret de votre choix) : il sera demandé sur cette page, pour que personne
 d'autre ne puisse installer avant vous. **Ne lancez pas `npm run seed` en production.**
 
+### Démo en ligne (pour essayer avant d'utiliser pour de vrai)
+
+Suivez les étapes Railway ci-dessous, mais à l'étape 5 mettez les variables
+`SEED_DEMO` = `1` et `DEMO_PASSWORD` = un mot de passe de votre choix (8 caractères minimum).
+La base vide est alors remplie avec la démonstration de Dakar ; connectez-vous avec
+`admin@demo.sn`, `boutique@demo.sn` ou `70 000 00 11` et ce mot de passe.
+
+Pour passer ensuite à l'utilisation réelle : supprimez `SEED_DEMO` et `DEMO_PASSWORD`,
+**supprimez le volume puis recréez-en un vide** monté sur `/data` (cela efface la démo), ajoutez
+`SETUP_CODE`, et redéployez : la page d'installation s'affichera.
+
 ### Railway (recommandé, le plus simple)
 
 Le dossier contient un `Dockerfile` prêt à l'emploi.

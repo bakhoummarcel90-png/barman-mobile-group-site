@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build && npm prune --omit=dev
+# Les outils de développement sont conservés pour pouvoir charger la démo (SEED_DEMO=1).
+RUN npm run build
 
 FROM node:22-bookworm-slim
 WORKDIR /app
@@ -15,4 +16,4 @@ ENV NODE_ENV=production \
 COPY --from=build /app /app
 RUN mkdir -p /data
 EXPOSE 3001
-CMD ["sh", "-c", "npx next start --port ${PORT}"]
+CMD ["sh", "start.sh"]
