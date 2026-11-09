@@ -1,0 +1,231 @@
+import "server-only";
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+import type { DatabaseSync } from "node:sqlite";
+
+/**
+ * Base SQLite locale (module `node:sqlite` intégré à Node ≥ 22.13).
+ * Un seul fichier : DATA_DIR/app.db (par défaut ./data/app.db).
+ *
+ * Toutes les tables métier portent `company_id` : chaque requête de l'app
+ * filtre sur l'entreprise de l'utilisateur connecté (voir lib/scope.ts).
+ */
+
+export const SCHEMA_VERSION = 1;
+
+const SCHEMA = /* sql */ `
+CREATE TABLE IF NOT EXISTS companies (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  country_code TEXT NOT NULL DEFAULT 'SN',
+  currency TEXT NOT NULL DEFAULT 'XOF',
+  timezone TEXT NOT NULL DEFAULT 'Africa/Dakar',
+  phone TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS merchants (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  name TEXT NOT NULL,
+  contact_name TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  neighborhood TEXT,
+  payout_method TEXT,
+  payout_account TEXT,
+  notes TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_merchants_company ON merchants(company_id);
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  role TEXT NOT NULL CHECK (role IN ('admin','merchant','courier')),
+  name TEXT NOT NULL,
+  email TEXT COLLATE NOCASE,
+  phone TEXT,
+  password_hash TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  merchant_id INTEGER REFERENCES merchants(id),
+  vehicle TEXT,
+  zone TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  last_login_at TEXT,
+  CHECK (role <> 'merchant' OR merchant_id IS NOT NULL)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_company_role ON users(company_id, role);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,               -- empreinte SHA-256 du jeton (le jeton brut n'est jamais stocké)
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expires_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS settlements (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  kind TEXT NOT NULL CHECK (kind IN ('courier_remittance','merchant_payout')),
+  courier_id INTEGER REFERENCES users(id),
+  merchant_id INTEGER REFERENCES merchants(id),
+  amount INTEGER NOT NULL,
+  delivery_count INTEGER NOT NULL,
+  method TEXT,
+  reference TEXT,
+  note TEXT,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_settlements_company ON settlements(company_id, created_at);
+
+CREATE TABLE IF NOT EXISTS deliveries (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  reference TEXT NOT NULL,
+  merchant_id INTEGER NOT NULL REFERENCES merchants(id),
+  courier_id INTEGER REFERENCES users(id),
+  customer_name TEXT NOT NULL,
+  customer_phone TEXT NOT NULL,
+  address TEXT NOT NULL,
+  neighborhood TEXT NOT NULL,
+  access_notes TEXT,
+  amount_to_collect INTEGER NOT NULL DEFAULT 0,
+  expected_payment_method TEXT NOT NULL,
+  delivery_fee INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  scheduled_at TEXT,
+  status TEXT NOT NULL DEFAULT 'a_attribuer'
+    CHECK (status IN ('a_attribuer','attribuee','en_cours','livree','echec','retour_commercant','annulee')),
+  failure_reason TEXT,
+  courier_note TEXT,
+  proof_photo TEXT,
+  started_at TEXT,
+  completed_at TEXT,
+  -- Encaissement (saisie manuelle)
+  collected_amount INTEGER,
+  collected_payment_method TEXT,
+  payment_status TEXT NOT NULL DEFAULT 'non_encaisse'
+    CHECK (payment_status IN ('non_encaisse','a_verifier','confirme','ecart')),
+  payment_note TEXT,
+  payment_confirmed_by INTEGER REFERENCES users(id),
+  payment_confirmed_at TEXT,
+  courier_settlement_id INTEGER REFERENCES settlements(id),
+  merchant_settlement_id INTEGER REFERENCES settlements(id),
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (company_id, reference)
+);
+CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(company_id, status);
+CREATE INDEX IF NOT EXISTS idx_deliveries_courier ON deliveries(company_id, courier_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_merchant ON deliveries(company_id, merchant_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_scheduled ON deliveries(company_id, scheduled_at);
+
+-- Journal : changements de statut, encaissements, modifications, gestion des comptes.
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  user_id INTEGER REFERENCES users(id),
+  delivery_id INTEGER REFERENCES deliveries(id),
+  subject_user_id INTEGER REFERENCES users(id),
+  merchant_id INTEGER REFERENCES merchants(id),
+  kind TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  message TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_events_company ON events(company_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_events_delivery ON events(delivery_id);
+`;
+
+export function dataDir(): string {
+  return path.resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || path.join(process.cwd(), "data"));
+}
+
+/**
+ * Charge `node:sqlite` en filtrant uniquement son avertissement « expérimental »
+ * (le module est stable en pratique depuis Node 22.13 ; les autres
+ * avertissements restent affichés).
+ */
+function loadSqlite(): typeof import("node:sqlite") {
+  const original = process.emitWarning;
+  process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
+    const text = typeof warning === "string" ? warning : warning.message;
+    if (text.includes("SQLite is an experimental feature")) return;
+    return (original as (...a: unknown[]) => void).call(process, warning, ...rest);
+  }) as typeof process.emitWarning;
+  try {
+    return process.getBuiltinModule("node:sqlite") as typeof import("node:sqlite");
+  } finally {
+    process.emitWarning = original;
+  }
+}
+
+function open(): DatabaseSync {
+  const { DatabaseSync } = loadSqlite();
+  const dir = dataDir();
+  mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(path.join(dir, "app.db"));
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  db.exec(SCHEMA);
+  return db;
+}
+
+const globalForDb = globalThis as unknown as { __senlivraisonDb?: DatabaseSync };
+
+export function getDb(): DatabaseSync {
+  if (!globalForDb.__senlivraisonDb) globalForDb.__senlivraisonDb = open();
+  return globalForDb.__senlivraisonDb;
+}
+
+/** Ferme la connexion (utilisé par les tests et le script de démonstration). */
+export function closeDb(): void {
+  globalForDb.__senlivraisonDb?.close();
+  globalForDb.__senlivraisonDb = undefined;
+}
+
+export type SqlValue = string | number | bigint | null | Uint8Array;
+
+// node:sqlite renvoie des objets sans prototype : on les copie en objets
+// ordinaires pour pouvoir les transmettre aux composants React.
+export function all<T>(sql: string, ...params: SqlValue[]): T[] {
+  return getDb().prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
+}
+
+export function get<T>(sql: string, ...params: SqlValue[]): T | undefined {
+  const row = getDb().prepare(sql).get(...params);
+  return row ? ({ ...row } as T) : undefined;
+}
+
+export function run(sql: string, ...params: SqlValue[]): { changes: number; id: number } {
+  const r = getDb().prepare(sql).run(...params);
+  return { changes: Number(r.changes), id: Number(r.lastInsertRowid) };
+}
+
+/** Exécute `fn` dans une transaction : tout est enregistré, ou rien. */
+export function transaction<T>(fn: () => T): T {
+  const db = getDb();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+export function nowIso(): string {
+  return new Date().toISOString();
+}
