@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import { CourierForm } from "@/components/PeopleForms";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { countryOf } from "@/lib/company";
 import { VEHICLES } from "@/lib/people";
 
 export const metadata: Metadata = { title: "Ajouter un livreur" };
 
 export default async function NewCourierPage() {
-  await requireUser(["admin"]);
+  const user = await requireUser(["admin"]);
   return (
     <>
       <PageHeader title="Ajouter un livreur" back={{ href: "/livreurs", label: "Livreurs" }} />
       <div className="card p-4 sm:p-5">
-        <CourierForm vehicles={VEHICLES} />
+        <CourierForm vehicles={VEHICLES} phoneExample={countryOf(user).phoneExample} />
       </div>
     </>
   );

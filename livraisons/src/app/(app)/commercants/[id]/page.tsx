@@ -49,6 +49,7 @@ export default async function MerchantPage({ params }: { params: Promise<{ id: s
               id={m.id}
               paymentMethods={country.paymentMethods}
               neighborhoods={country.neighborhoods}
+              phoneExample={country.phoneExample}
               defaults={{
                 name: m.name,
                 contact_name: m.contact_name ?? "",

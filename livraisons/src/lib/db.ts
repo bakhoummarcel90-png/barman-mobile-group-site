@@ -130,6 +130,56 @@ CREATE INDEX IF NOT EXISTS idx_deliveries_courier ON deliveries(company_id, cour
 CREATE INDEX IF NOT EXISTS idx_deliveries_merchant ON deliveries(company_id, merchant_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_scheduled ON deliveries(company_id, scheduled_at);
 
+-- Colis internationaux (Europe, Chine, États-Unis… ↔ Afrique), suivis manuellement.
+CREATE TABLE IF NOT EXISTS shipments (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  tracking_number TEXT NOT NULL UNIQUE,
+  merchant_id INTEGER REFERENCES merchants(id),
+  client_reference TEXT,
+  transport_mode TEXT NOT NULL,
+  carrier TEXT,
+  carrier_tracking TEXT,
+  origin_country TEXT NOT NULL,
+  origin_city TEXT,
+  destination_country TEXT NOT NULL,
+  destination_city TEXT,
+  sender_name TEXT NOT NULL,
+  sender_phone TEXT,
+  recipient_name TEXT NOT NULL,
+  recipient_phone TEXT NOT NULL,
+  recipient_address TEXT,
+  description TEXT NOT NULL,
+  pieces INTEGER NOT NULL DEFAULT 1,
+  weight_grams INTEGER,
+  declared_value INTEGER,
+  declared_currency TEXT,
+  shipping_fee INTEGER NOT NULL DEFAULT 0,
+  fee_paid INTEGER NOT NULL DEFAULT 0,
+  estimated_arrival TEXT,
+  status TEXT NOT NULL DEFAULT 'enregistre'
+    CHECK (status IN ('enregistre','recu_origine','en_transit','arrive_destination','douane','pret','livre','incident','annule')),
+  notes TEXT,
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_shipments_company ON shipments(company_id, status);
+CREATE INDEX IF NOT EXISTS idx_shipments_merchant ON shipments(company_id, merchant_id);
+
+-- Étapes de suivi d'un colis (affichées, sans les notes internes, sur la page publique /suivi).
+CREATE TABLE IF NOT EXISTS shipment_events (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  shipment_id INTEGER NOT NULL REFERENCES shipments(id),
+  user_id INTEGER REFERENCES users(id),
+  status TEXT NOT NULL,
+  location TEXT,
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_shipment_events ON shipment_events(shipment_id, id);
+
 -- Journal : changements de statut, encaissements, modifications, gestion des comptes.
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
@@ -178,7 +228,17 @@ function open(): DatabaseSync {
   const db = new DatabaseSync(path.join(dir, "app.db"));
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** Évolutions du schéma sur une base existante (ajouts de colonnes). */
+function migrate(db: DatabaseSync): void {
+  const columns = (table: string) =>
+    new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+  if (!columns("deliveries").has("shipment_id")) {
+    db.exec("ALTER TABLE deliveries ADD COLUMN shipment_id INTEGER REFERENCES shipments(id)");
+  }
 }
 
 const globalForDb = globalThis as unknown as { __senlivraisonDb?: DatabaseSync };

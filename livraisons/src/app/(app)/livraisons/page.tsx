@@ -49,7 +49,7 @@ function CourierDay({ user, country }: { user: Actor; country: CountryConfig }) 
           <p className="text-xs text-ink-muted">Terminées</p>
         </div>
         <Link href="/encaissements" className="card p-3">
-          <p className="text-lg font-bold tabular-nums text-ink">{formatMoney(held, country)}</p>
+          <p className="break-words text-sm font-bold tabular-nums text-ink sm:text-lg">{formatMoney(held, country)}</p>
           <p className="text-xs text-ink-muted">À remettre</p>
         </Link>
       </div>

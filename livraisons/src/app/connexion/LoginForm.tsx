@@ -19,7 +19,7 @@ export function LoginForm() {
           className="input"
           autoComplete="username"
           inputMode="email"
-          placeholder="ex. 77 123 45 67"
+          placeholder="Votre e-mail ou votre numéro"
           defaultValue={state.values?.identifier ?? ""}
           required
         />

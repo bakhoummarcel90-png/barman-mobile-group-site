@@ -38,6 +38,8 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
         paymentMethods={country.paymentMethods}
         neighborhoods={country.neighborhoods}
         currencyLabel={country.currencyLabel}
+        phoneExample={country.phoneExample}
+        city={country.city}
         isAdmin={user.role === "admin"}
         courierLocked={d.status === "en_cours"}
       />

@@ -10,6 +10,7 @@
  */
 import { closeDb, getDb, get, run } from "../src/lib/db";
 import { localInputToIso, todayLocal, addDays } from "../src/lib/format";
+import { randomBytes } from "node:crypto";
 import { generatePassword, hashPassword } from "../src/lib/password";
 import type { DeliveryStatus, PaymentStatus } from "../src/lib/constants";
 
@@ -17,14 +18,114 @@ const TZ = "Africa/Dakar";
 const reset = process.argv.includes("--reset");
 const db = getDb();
 
+/* ---------- Colis internationaux de démonstration ---------- */
+
+const TRACK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function trackingNumber(): string {
+  return "SL" + Array.from(randomBytes(8), (b) => TRACK_ALPHABET[b % TRACK_ALPHABET.length]).join("");
+}
+
+function seedShipments(companyId: number, adminId: number): number {
+  const merchantId = (name: string) => get<{ id: number }>("SELECT id FROM merchants WHERE company_id = ? AND name = ?", companyId, name)?.id ?? null;
+  const ago = (days: number, hours = 0) => new Date(Date.now() - (days * 24 + hours) * 3600_000).toISOString();
+  const inDays = (days: number) => new Date(Date.now() + days * 86400_000).toISOString().slice(0, 10);
+  type Step = [string, string | null, string];
+  const shipments: {
+    merchant: string | null; mode: string; carrier: string | null; carrierTracking: string | null;
+    from: [string, string]; to: [string, string]; sender: string; senderPhone: string | null; recipient: string; recipientPhone: string;
+    address: string | null; description: string; pieces: number; grams: number; value: number | null; currency: string | null;
+    fee: number; paid: number; eta: string | null; status: string; steps: Step[]; notes?: string;
+  }[] = [
+    {
+      merchant: "Keur Sokhna Wax", mode: "aerien", carrier: "Air France Cargo", carrierTracking: "057-12345675",
+      from: ["FR", "Paris"], to: ["SN", "Dakar"], sender: "Tissus Château-Rouge", senderPhone: "+33100000001",
+      recipient: "Sokhna Mbaye", recipientPhone: "+221700000021", address: "Marché HLM, cantine 112",
+      description: "Rouleaux de wax et bazin", pieces: 3, grams: 42000, value: 1800, currency: "EUR", fee: 165000, paid: 1, eta: inDays(2),
+      status: "en_transit",
+      steps: [["enregistre", "Paris, France", ago(6)], ["recu_origine", "Entrepôt du transitaire, Roissy", ago(4)], ["en_transit", "Aéroport Paris-CDG", ago(1)]],
+    },
+    {
+      merchant: "Dakar Tech Store", mode: "maritime", carrier: "Dakar Trans Fret (transitaire)", carrierTracking: "BL-NSH-884201",
+      from: ["CN", "Guangzhou"], to: ["SN", "Dakar"], sender: "Shenzhen Mobile Parts Co.", senderPhone: "+8610000000001",
+      recipient: "Ousmane Faye", recipientPhone: "+221700000024", address: "Avenue Lamine Guèye, Plateau",
+      description: "Téléphones et accessoires", pieces: 12, grams: 310000, value: 9500, currency: "USD", fee: 420000, paid: 0, eta: inDays(-1),
+      status: "douane",
+      steps: [["enregistre", "Guangzhou, Chine", ago(42)], ["recu_origine", "Entrepôt de groupage, Guangzhou", ago(40)], ["en_transit", "Port de Nansha", ago(36)], ["arrive_destination", "Port autonome de Dakar", ago(3)], ["douane", "Port autonome de Dakar", ago(2)]],
+      notes: "Déclaration en douane déposée, attente du bon à enlever.",
+    },
+    {
+      merchant: null, mode: "express", carrier: "DHL Express", carrierTracking: "1234567890",
+      from: ["US", "New York"], to: ["SN", "Dakar"], sender: "Amadou Sall", senderPhone: "+12120000001",
+      recipient: "Aïssatou Sall", recipientPhone: "+221700000031", address: "Sacré-Cœur 3, villa 45",
+      description: "Documents et cadeaux", pieces: 1, grams: 2500, value: 150, currency: "USD", fee: 15000, paid: 0, eta: inDays(0),
+      status: "arrive_destination",
+      steps: [["enregistre", "New York, États-Unis", ago(5)], ["en_transit", "Hub DHL de Cincinnati", ago(3)], ["arrive_destination", "Aéroport Blaise Diagne, Dakar", ago(0, 5)]],
+    },
+    {
+      merchant: "Saveurs du Saloum", mode: "aerien", carrier: "Transitaire Teranga Cargo", carrierTracking: null,
+      from: ["SN", "Dakar"], to: ["FR", "Paris"], sender: "Saveurs du Saloum", senderPhone: "+221700000023",
+      recipient: "Mariama Ndiaye", recipientPhone: "+33100000002", address: "Paris 18e",
+      description: "Produits du terroir (bissap, thiakry, café Touba)", pieces: 2, grams: 18000, value: 120000, currency: "XOF", fee: 90000, paid: 1, eta: inDays(6),
+      status: "enregistre",
+      steps: [["enregistre", "Dakar, Sénégal", ago(0, 3)]],
+    },
+    {
+      merchant: "Teranga Cosmétiques", mode: "aerien", carrier: "Turkish Cargo", carrierTracking: "235-99887766",
+      from: ["TR", "Istanbul"], to: ["SN", "Dakar"], sender: "Istanbul Beauty Export", senderPhone: null,
+      recipient: "Fatou Sy", recipientPhone: "+221700000022", address: "Rue 10 x Bourguiba",
+      description: "Produits cosmétiques", pieces: 4, grams: 26000, value: 2300, currency: "EUR", fee: 120000, paid: 1, eta: inDays(-8),
+      status: "livre",
+      steps: [["enregistre", "Istanbul, Turquie", ago(15)], ["en_transit", "Aéroport d'Istanbul", ago(12)], ["arrive_destination", "Aéroport Blaise Diagne, Dakar", ago(10)], ["douane", "Aéroport Blaise Diagne, Dakar", ago(9)], ["pret", "Entrepôt Dakar Express", ago(8)], ["livre", "Sicap Baobab, Dakar", ago(7)]],
+    },
+    {
+      merchant: null, mode: "maritime", carrier: "Transitaire Atlantique Shipping", carrierTracking: "BL-ANR-55120",
+      from: ["BE", "Anvers"], to: ["SN", "Dakar"], sender: "Ibrahima Diallo", senderPhone: "+32400000001",
+      recipient: "Famille Diallo", recipientPhone: "+221700000032", address: "Parcelles Assainies, unité 15",
+      description: "Électroménager (réfrigérateur, téléviseur)", pieces: 2, grams: 95000, value: 900, currency: "EUR", fee: 250000, paid: 0, eta: inDays(-4),
+      status: "incident",
+      steps: [["enregistre", "Anvers, Belgique", ago(30)], ["en_transit", "Port d'Anvers", ago(25)], ["arrive_destination", "Port autonome de Dakar", ago(5)], ["incident", "Port autonome de Dakar", ago(2)]],
+      notes: "Facture d'achat manquante pour le dédouanement : demandée à l'expéditeur.",
+    },
+  ];
+  for (const sh of shipments) {
+    const created = sh.steps[0][2];
+    const id = run(
+      `INSERT INTO shipments (company_id, tracking_number, merchant_id, transport_mode, carrier, carrier_tracking, origin_country, origin_city,
+         destination_country, destination_city, sender_name, sender_phone, recipient_name, recipient_phone, recipient_address, description,
+         pieces, weight_grams, declared_value, declared_currency, shipping_fee, fee_paid, estimated_arrival, status, notes, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      companyId, trackingNumber(), sh.merchant ? merchantId(sh.merchant) : null, sh.mode, sh.carrier, sh.carrierTracking,
+      sh.from[0], sh.from[1], sh.to[0], sh.to[1], sh.sender, sh.senderPhone, sh.recipient, sh.recipientPhone, sh.address, sh.description,
+      sh.pieces, sh.grams, sh.value, sh.currency, sh.fee, sh.paid, sh.eta, sh.status, sh.notes ?? null, adminId, created, sh.steps[sh.steps.length - 1][2],
+    ).id;
+    for (const [status, location, at] of sh.steps) {
+      run(
+        "INSERT INTO shipment_events (company_id, shipment_id, user_id, status, location, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        companyId, id, adminId, status, location, status === "incident" ? (sh.notes ?? null) : null, at,
+      );
+    }
+  }
+  return shipments.length;
+}
+
 const existing = get<{ n: number }>("SELECT COUNT(*) AS n FROM companies")!.n;
 if (existing && !reset) {
-  console.log("La base contient déjà des données. Utilisez `npm run seed -- --reset` pour tout effacer et recréer la démonstration.");
+  // Démo déjà installée (ex. en ligne) : on ajoute seulement les colis de démonstration s'ils manquent.
+  const demoAdmin = get<{ id: number; company_id: number }>("SELECT id, company_id FROM users WHERE email = 'admin@demo.sn'");
+  const hasShipments = demoAdmin && get("SELECT 1 FROM shipments WHERE company_id = ?", demoAdmin.company_id);
+  if (demoAdmin && !hasShipments) {
+    db.exec("BEGIN");
+    const n = seedShipments(demoAdmin.company_id, demoAdmin.id);
+    db.exec("COMMIT");
+    console.log(`${n} colis internationaux de démonstration ajoutés à la démo existante.`);
+  } else {
+    console.log("La base contient déjà des données. Utilisez `npm run seed -- --reset` pour tout effacer et recréer la démonstration.");
+  }
   closeDb();
   process.exit(0);
 }
 if (reset) {
-  for (const t of ["events", "deliveries", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
+  for (const t of ["shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
   console.log("Base vidée.");
 }
 
@@ -291,6 +392,8 @@ for (const c of [moussa, ibrahima, cheikh, modou]) settle("courier_remittance", 
 settle("merchant_payout", wax, old, "wave", at(-2, "19:30"));
 settle("merchant_payout", tech, old, "wave", at(-2, "19:35"));
 
+seedShipments(company, admin);
+
 db.exec("COMMIT");
 closeDb();
 
@@ -304,4 +407,5 @@ ${process.env.DEMO_PASSWORD ? "" : "(généré aléatoirement — définissez DE
   Livreur        : 70 000 00 11       (Moussa Diop — connexion par téléphone)
 
 Les numéros de téléphone de la démonstration sont fictifs.
+Colis internationaux : 6 colis de démonstration (France, Chine, États-Unis, Belgique, Turquie, export vers la France).
 `);

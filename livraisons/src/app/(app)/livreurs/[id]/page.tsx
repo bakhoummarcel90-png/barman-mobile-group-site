@@ -52,6 +52,7 @@ export default async function CourierPage({ params }: { params: Promise<{ id: st
             <CourierForm
               id={c.id}
               vehicles={VEHICLES}
+              phoneExample={country.phoneExample}
               defaults={{ name: c.name, phone: c.phone ?? "", email: c.email ?? "", vehicle: c.vehicle ?? "", zone: c.zone ?? "", notes: c.notes ?? "" }}
             />
           </Card>

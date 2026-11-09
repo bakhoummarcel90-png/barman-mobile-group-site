@@ -88,6 +88,8 @@ export interface Delivery {
   payment_confirmed_at: string | null;
   courier_settlement_id: number | null;
   merchant_settlement_id: number | null;
+  /** Colis international dont cette livraison est le « dernier kilomètre ». */
+  shipment_id: number | null;
   created_by: number;
   created_at: string;
   updated_at: string;

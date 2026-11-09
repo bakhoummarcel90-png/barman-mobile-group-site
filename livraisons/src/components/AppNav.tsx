@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Package,
   Settings,
   Store,
   Truck,
@@ -31,6 +32,7 @@ const NAV: Record<Role, Item[]> = {
     { href: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
     { href: "/commandes", label: "Commandes", icon: ClipboardList },
     { href: "/livraisons", label: "Livraisons", icon: Truck },
+    { href: "/colis", label: "Colis", icon: Package },
     { href: "/encaissements", label: "Encaissements", icon: Banknote },
     { href: "/livreurs", label: "Livreurs", icon: Bike },
     { href: "/commercants", label: "Commerçants", icon: Store },
@@ -40,6 +42,7 @@ const NAV: Record<Role, Item[]> = {
     { href: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
     { href: "/commandes", label: "Commandes", icon: ClipboardList },
     { href: "/livraisons", label: "Suivi", icon: Truck },
+    { href: "/colis", label: "Colis", icon: Package },
     { href: "/encaissements", label: "Paiements", icon: Banknote },
   ],
   courier: [
@@ -49,7 +52,9 @@ const NAV: Record<Role, Item[]> = {
   ],
 };
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, href: string, role?: Role) {
+  // Pour le livreur, la fiche d'une course appartient à « Aujourd'hui », pas à l'historique.
+  if (role === "courier" && /^\/commandes\/\d+/.test(pathname)) return href === "/livraisons";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -105,9 +110,9 @@ export function AppNav({
           href={it.href}
           className={cx(
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-            isActive(pathname, it.href) ? "bg-brand-50 text-brand-800" : "text-ink-soft hover:bg-slate-100",
+            isActive(pathname, it.href, role) ? "bg-brand-50 text-brand-800" : "text-ink-soft hover:bg-slate-100",
           )}
-          aria-current={isActive(pathname, it.href) ? "page" : undefined}
+          aria-current={isActive(pathname, it.href, role) ? "page" : undefined}
         >
           <it.icon className="h-5 w-5" aria-hidden />
           {it.label}
@@ -174,9 +179,9 @@ export function AppNav({
             href={it.href}
             className={cx(
               "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium",
-              isActive(pathname, it.href) ? "text-brand-700" : "text-ink-muted",
+              isActive(pathname, it.href, role) ? "text-brand-700" : "text-ink-muted",
             )}
-            aria-current={isActive(pathname, it.href) ? "page" : undefined}
+            aria-current={isActive(pathname, it.href, role) ? "page" : undefined}
           >
             <it.icon className="h-6 w-6" aria-hidden />
             {it.label}

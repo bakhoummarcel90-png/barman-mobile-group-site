@@ -42,7 +42,17 @@ function Credentials({ state, profileHref }: { state: FormState; profileHref?: s
   );
 }
 
-export function CourierForm({ id, defaults = {}, vehicles }: { id?: number; defaults?: Record<string, string>; vehicles: string[] }) {
+export function CourierForm({
+  id,
+  defaults = {},
+  vehicles,
+  phoneExample,
+}: {
+  id?: number;
+  defaults?: Record<string, string>;
+  vehicles: string[];
+  phoneExample: string;
+}) {
   const [state, action] = useActionState(saveCourierAction, {});
   if (!id && state.ok && state.data) return <Credentials state={state} profileHref={`/livreurs/${state.data.id}`} />;
   const p = (n: string) => inputProps(n, state, defaults);
@@ -56,7 +66,7 @@ export function CourierForm({ id, defaults = {}, vehicles }: { id?: number; defa
           <input {...p("name")} />
         </Field>
         <Field label="Téléphone" name="phone" error={e("phone")} hint="Sert d'identifiant de connexion." required>
-          <input {...p("phone")} type="tel" inputMode="tel" placeholder="77 123 45 67" />
+          <input {...p("phone")} type="tel" inputMode="tel" placeholder={phoneExample} />
         </Field>
         <Field label="E-mail" name="email" error={e("email")}>
           <input {...p("email")} type="email" inputMode="email" />
@@ -93,11 +103,13 @@ export function MerchantForm({
   defaults = {},
   paymentMethods,
   neighborhoods,
+  phoneExample,
 }: {
   id?: number;
   defaults?: Record<string, string>;
   paymentMethods: PaymentMethodConfig[];
   neighborhoods: string[];
+  phoneExample: string;
 }) {
   const [state, action] = useActionState(saveMerchantAction, {});
   if (!id && state.ok && state.data) return <Credentials state={state} profileHref={`/commercants/${state.data.id}`} />;
@@ -115,7 +127,7 @@ export function MerchantForm({
           <input {...p("contact_name")} />
         </Field>
         <Field label="Téléphone" name="phone" error={e("phone")} hint="Sert d'identifiant de connexion." required>
-          <input {...p("phone")} type="tel" inputMode="tel" placeholder="77 123 45 67" />
+          <input {...p("phone")} type="tel" inputMode="tel" placeholder={phoneExample} />
         </Field>
         <Field label="E-mail" name="email" error={e("email")} hint="Peut aussi servir à se connecter.">
           <input {...p("email")} type="email" inputMode="email" />
@@ -141,8 +153,8 @@ export function MerchantForm({
             ))}
           </select>
         </Field>
-        <Field label="Numéro Wave / Orange Money" name="payout_account" error={e("payout_account")}>
-          <input {...p("payout_account")} type="tel" inputMode="tel" />
+        <Field label="Numéro mobile money ou compte" name="payout_account" error={e("payout_account")}>
+          <input {...p("payout_account")} />
         </Field>
         {!id ? (
           <Field label="Mot de passe provisoire" name="password" error={e("password")} hint="Laissez vide pour en générer un automatiquement.">

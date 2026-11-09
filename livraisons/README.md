@@ -7,8 +7,13 @@ livraison et aux commerçants en ligne qu'elle sert de :
 - confirmer la remise au client (montant encaissé, note, photo) ;
 - rapprocher les montants encaissés : vérification, remise des livreurs, reversement aux commerçants.
 
-Interface en français, montants en **franc CFA (FCFA)**, paiements **Espèces, Wave, Orange Money**
-(saisie et confirmation **manuelles** dans cette version).
+Elle gère aussi le **suivi des colis internationaux** (Europe, Chine, États-Unis… ↔ Afrique), avec une
+page de suivi publique pour les clients et la livraison locale à l'arrivée.
+
+Interface en français. **11 pays d'Afrique de l'Ouest** sont configurés : Sénégal, Côte d'Ivoire, Mali,
+Burkina Faso, Bénin, Togo, Niger (franc CFA), Guinée, Ghana, Nigeria et Gambie, chacun avec sa devise, son
+indicatif téléphonique et ses moyens de paiement (espèces, Wave, Orange Money, MTN MoMo, Moov Money…).
+La saisie et la confirmation des paiements sont **manuelles** dans cette version.
 
 > Ce dossier est une application autonome : il est indépendant du site vitrine
 > situé à la racine du dépôt (dépendances, build et déploiement séparés).
@@ -38,7 +43,9 @@ Production : `npm run build` puis `npm start` (port 3001).
 ### Compte de démonstration
 
 `npm run seed` crée l'entreprise « Dakar Express Livraison » (4 commerçants, 4 livreurs dont un
-désactivé, ~26 commandes dans tous les statuts, des remises et reversements passés).
+désactivé, ~26 commandes dans tous les statuts, des remises et reversements passés, 6 colis internationaux).
+Sur une démo déjà installée, `npm run seed` (ou `SEED_DEMO=1` au démarrage) ajoute seulement les colis
+de démonstration s'ils manquent.
 
 | Rôle | Identifiant |
 | --- | --- |
@@ -96,6 +103,8 @@ vérification des droits.
 | `/livraisons` | Admin : répartition (à attribuer, en retard, échecs, courses par livreur). Commerçant : suivi. Livreur : sa journée |
 | `/livreurs`, `/commercants` | Gestion des comptes, activation/désactivation, nouveau mot de passe, activité |
 | `/encaissements` | Vérification, montants à remettre par livreur, à reverser par commerçant, historique, exports CSV |
+| `/colis`, `/colis/nouveau`, `/colis/[id]` | Colis internationaux : enregistrement, étapes de suivi, lien de suivi à envoyer au client, création de la livraison locale |
+| `/suivi`, `/suivi/[numéro]` | **Page publique** (sans compte) où le client suit son colis avec son numéro SL… |
 | `/parametres` | Entreprise, administrateurs, état des intégrations |
 | `/mon-compte` | Changement de mot de passe, déconnexion |
 
@@ -128,8 +137,40 @@ Défini dans `src/lib/db.ts` (créé automatiquement au premier lancement) :
 - `deliveries` — commandes/livraisons, avec l'encaissement et les liens vers les reversements
 - `settlements` — remises des livreurs et reversements aux commerçants
 - `events` — journal (statuts, modifications, encaissements, comptes)
+- `shipments` — colis internationaux (trajet, transporteur, expéditeur, destinataire, contenu, frais)
+- `shipment_events` — étapes de suivi des colis (lieu visible du client, note interne)
+
+Les évolutions du schéma sur une base existante sont appliquées automatiquement au démarrage (`migrate()`).
 
 Les montants sont des entiers dans la devise (le FCFA n'a pas de décimales).
+
+## Colis internationaux
+
+- Chaque colis reçoit un numéro de suivi `SL` + 8 caractères (ex. `SL7KQ2M9XA`), à transmettre au client
+  (bouton WhatsApp/SMS prérempli sur la fiche du colis).
+- Étapes : Enregistré → Reçu au point de départ → En transit international → Arrivé dans le pays de destination →
+  En dédouanement → Prêt pour livraison ou retrait → Livré (ou Incident / Annulé).
+- L'administrateur saisit chaque étape avec un lieu (visible du client) et une note interne (jamais visible).
+- La page publique `/suivi` n'affiche que les étapes, les villes et les dates : ni nom, ni téléphone, ni note.
+- À l'arrivée, « Créer la livraison au destinataire » prépare une commande locale ; quand le livreur la confirme,
+  le colis passe automatiquement à « Livré ».
+- Le commerçant voit et enregistre ses propres colis ; le livreur n'y a pas accès.
+- **Aucune API de transporteur n'est connectée** (DHL, FedEx, UPS, compagnies aériennes ou maritimes) : les étapes
+  sont mises à jour à la main d'après les informations du transitaire. Pour DHL, FedEx et UPS, un lien ouvre la
+  page de suivi publique du transporteur. Une intégration automatique demanderait un compte et des clés API
+  auprès de chaque transporteur.
+
+## Pays, devises et moyens de paiement
+
+Le pays est choisi à l'installation (page `/installation`) et ne change plus ensuite : il fixe la devise,
+le fuseau horaire, l'indicatif téléphonique, les moyens de paiement et les quartiers suggérés. Les numéros
+étrangers sont acceptés s'ils sont saisis avec leur indicatif (+33…, +1…, +86…).
+
+Les montants sont enregistrés en unités entières de la devise (sans centimes) : c'est naturel pour le franc
+CFA et le franc guinéen ; pour le cedi, le naira et le dalasi, les centimes ne sont pas gérés dans cette version.
+Les listes d'opérateurs de mobile money sont données à titre indicatif : vérifiez-les avec vos partenaires
+locaux et ajustez-les dans `src/lib/regions.ts`. L'interface reste en français, y compris pour le Ghana,
+le Nigeria et la Gambie.
 
 ## Ajouter un pays, une devise ou un moyen de paiement
 
@@ -149,6 +190,7 @@ Aucune connexion externe n'est simulée.
 | SMS | Bouton qui ouvre l'application Messages avec un texte prérempli | Un fournisseur SMS (ex. Orange SMS API) : clé API + nom d'expéditeur validé |
 | WhatsApp | Bouton `wa.me` qui ouvre WhatsApp avec un texte prérempli | **WhatsApp Business Platform** : numéro vérifié, jeton d'accès, modèles de messages approuvés |
 | Itinéraire | Lien public Google Maps (recherche d'adresse) | Rien à configurer |
+| Transporteurs internationaux (DHL, FedEx, UPS, fret aérien et maritime) | Étapes saisies à la main ; lien vers la page de suivi publique de DHL, FedEx et UPS | Compte professionnel et clés API de chaque transporteur |
 
 Les reversements Wave / Orange Money aux commerçants se font en dehors de l'application,
 puis sont enregistrés dans « Encaissements ».

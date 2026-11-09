@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { setupAction } from "../actions";
 import { Field, FormMessage, inputProps, SubmitButton } from "@/components/forms";
 
-export function SetupForm({ codeRequired }: { codeRequired: boolean }) {
+export function SetupForm({ codeRequired, countries }: { codeRequired: boolean; countries: { code: string; name: string }[] }) {
   const [state, action] = useActionState(setupAction, {});
   const p = (n: string) => inputProps(n, state);
   const e = (n: string) => state.errors?.[n];
@@ -18,8 +18,17 @@ export function SetupForm({ codeRequired }: { codeRequired: boolean }) {
       ) : null}
       <fieldset className="space-y-4">
         <legend className="mb-2 font-semibold text-ink">Votre entreprise</legend>
+        <Field label="Pays" name="country" error={e("country")} hint="Définit la devise, l'indicatif téléphonique et les moyens de paiement. Il ne pourra plus être changé ensuite." required>
+          <select {...inputProps("country", state, { country: "SN" })}>
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Nom de l'entreprise de livraison" name="company_name" error={e("company_name")} required>
-          <input {...p("company_name")} placeholder="ex. Dakar Express Livraison" />
+          <input {...p("company_name")} placeholder="ex. Express Livraison" />
         </Field>
         <Field label="Téléphone de l'entreprise" name="company_phone" error={e("company_phone")}>
           <input {...p("company_phone")} type="tel" inputMode="tel" />
@@ -35,7 +44,7 @@ export function SetupForm({ codeRequired }: { codeRequired: boolean }) {
             <input {...p("email")} type="email" inputMode="email" autoComplete="email" />
           </Field>
           <Field label="Téléphone" name="phone" error={e("phone")}>
-            <input {...p("phone")} type="tel" inputMode="tel" placeholder="77 123 45 67" />
+            <input {...p("phone")} type="tel" inputMode="tel" />
           </Field>
           <Field label="Mot de passe" name="password" error={e("password")} hint="Au moins 8 caractères." required>
             <input id="password" name="password" type="password" className="input" autoComplete="new-password" />
