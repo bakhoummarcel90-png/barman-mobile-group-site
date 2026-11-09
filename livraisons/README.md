@@ -66,6 +66,7 @@ Voir `.env.example`.
 | --- | --- |
 | `DATA_DIR` | Dossier de la base SQLite et des photos (défaut : `./data`) |
 | `DEMO_PASSWORD` | Mot de passe des comptes créés par `npm run seed` |
+| `SETUP_CODE` | Code exigé sur la page /installation (recommandé en ligne) |
 | `HIDE_DEMO_HINT=1` | Masque l'encadré « comptes de démonstration » |
 | `INSECURE_COOKIES=1` | Uniquement pour tester `npm start` depuis un téléphone sur le réseau local en HTTP (en production, servez l'application en HTTPS) |
 
@@ -152,13 +153,39 @@ Aucune connexion externe n'est simulée.
 Les reversements Wave / Orange Money aux commerçants se font en dehors de l'application,
 puis sont enregistrés dans « Encaissements ».
 
-## Hébergement
+## Mise en ligne
 
-SQLite écrit dans un fichier local : hébergez l'application sur un serveur avec **disque
-persistant** (VPS, Railway, Render, Fly.io avec volume…). Les plateformes « serverless » sans disque
-persistant (ex. Vercel) ne conviennent pas en l'état. Sauvegardez régulièrement le dossier `data/`
-(base + photos). Le passage à PostgreSQL est possible plus tard : tout l'accès aux données passe par
-`src/lib/db.ts` et les modules de `src/lib/`.
+### Première installation (vraie entreprise, sans démo)
+
+Sur une base vide, l'application affiche la page **/installation** : vous y créez votre entreprise
+et votre compte administrateur, puis vous ajoutez vos livreurs et commerçants depuis l'application.
+Cette page ne fonctionne qu'une fois (tant qu'aucun compte n'existe). En ligne, définissez la variable
+**`SETUP_CODE`** (un code secret de votre choix) : il sera demandé sur cette page, pour que personne
+d'autre ne puisse installer avant vous. **Ne lancez pas `npm run seed` en production.**
+
+### Railway (recommandé, le plus simple)
+
+Le dossier contient un `Dockerfile` prêt à l'emploi.
+
+1. Créez un compte sur https://railway.app (connexion avec GitHub).
+2. **New Project → Deploy from GitHub repo** → choisissez ce dépôt.
+3. Dans le service : **Settings → Source → Root Directory** = `livraisons`
+   (et la branche à déployer).
+4. **Ajoutez un volume** au service, monté sur **`/data`** (sinon les données sont perdues à chaque déploiement).
+5. **Variables** : `SETUP_CODE` = un code secret de votre choix, `HIDE_DEMO_HINT` = `1`.
+6. **Settings → Networking → Generate Domain** : vous obtenez une adresse `https://….up.railway.app`.
+7. Ouvrez cette adresse : la page d'installation s'affiche ; saisissez votre `SETUP_CODE`.
+
+L'adresse fonctionne sur ordinateur et sur téléphone : envoyez-la à vos livreurs et commerçants avec
+leurs identifiants. Vous pourrez ensuite brancher votre propre nom de domaine (ex. `livraison.barmanmobile.com`).
+
+### Autres hébergeurs
+
+N'importe quel hébergeur capable de lancer le `Dockerfile` **avec un disque persistant monté sur `/data`**
+convient (Render avec « Persistent Disk », Fly.io avec volume, VPS). Les plateformes sans disque persistant
+(ex. Vercel) ne conviennent pas en l'état. Sauvegardez régulièrement `/data` (base + photos).
+Le passage à PostgreSQL reste possible plus tard : tout l'accès aux données passe par `src/lib/db.ts`
+et les modules de `src/lib/`.
 
 ## Vérifications
 

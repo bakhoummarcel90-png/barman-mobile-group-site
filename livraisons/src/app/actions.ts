@@ -17,6 +17,7 @@ import { formatMoney, normalizePhone, parseAmount } from "@/lib/format";
 import { verifyPassword } from "@/lib/password";
 import * as people from "@/lib/people";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
+import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
 import { savePhoto } from "@/lib/storage";
 import { formValues, invalid, optional, str, UserError, type FormState } from "@/lib/validation";
 
@@ -65,6 +66,21 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   clearLoginFailures(key);
   await createSession(user.id);
   redirect(user.role === "courier" ? "/livraisons" : "/tableau-de-bord");
+}
+
+/** Première installation : entreprise + premier administrateur (uniquement si aucun compte n'existe). */
+export async function setupAction(_: FormState, fd: FormData): Promise<FormState> {
+  if (!needsSetup()) redirect("/connexion");
+  const parsed = parseSetupForm(fd);
+  if (!parsed.data) return invalid(parsed.errors, fd);
+  let userId: number;
+  try {
+    userId = runSetup(parsed.data);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  await createSession(userId);
+  redirect("/tableau-de-bord");
 }
 
 export async function logoutAction(): Promise<void> {

@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/");
+  // Aucun compte : première installation.
+  if (!get("SELECT 1 FROM users LIMIT 1")) redirect("/installation");
   // Le rappel des comptes de démonstration n'apparaît que si la démo est installée.
   const demo = process.env.HIDE_DEMO_HINT !== "1" && !!get("SELECT 1 FROM users WHERE email = 'admin@demo.sn'");
-  const empty = !get("SELECT 1 FROM users LIMIT 1");
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-brand-50 to-slate-50 px-4 py-10">
@@ -28,15 +29,7 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
 
-        {empty ? (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Aucun compte n'existe encore.</p>
-            <p className="mt-1">
-              Dans le dossier <code>livraisons</code>, lancez <code>npm run seed</code> pour créer les données de démonstration.
-              Les identifiants et le mot de passe s'affichent dans le terminal.
-            </p>
-          </div>
-        ) : demo ? (
+        {demo ? (
           <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
             <p className="font-semibold">Comptes de démonstration</p>
             <ul className="mt-1 space-y-0.5">
