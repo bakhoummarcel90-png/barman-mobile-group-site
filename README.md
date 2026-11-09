@@ -160,3 +160,12 @@ navigateur, via un lien WhatsApp prérempli).
 - **Bandeau de cookies** : à ajouter uniquement si un outil nécessitant
   un consentement (statistiques, publicité) est intégré ultérieurement —
   aucun cookie non essentiel n'est utilisé actuellement.
+
+---
+
+## Application de gestion des livraisons (`livraisons/`)
+
+Le dossier `livraisons/` contient une application **indépendante** du site vitrine
+(SaaS de gestion des livraisons pour les commerces en ligne au Sénégal), avec ses propres
+dépendances et sa propre base de données. Elle n'est pas incluse dans le build du site.
+Instructions : voir [`livraisons/README.md`](livraisons/README.md).

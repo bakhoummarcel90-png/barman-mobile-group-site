@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+# Base de données locale et photos de preuve : jamais dans Git
+data/
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
