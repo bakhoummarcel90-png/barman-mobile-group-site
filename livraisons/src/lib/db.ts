@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at TEXT,
   -- 1 = livreur inscrit lui-même, en attente de validation par l'administrateur
   pending INTEGER NOT NULL DEFAULT 0,
+  -- 0 = inscrit lui-même, e-mail pas encore confirmé par le code reçu
+  email_verified INTEGER NOT NULL DEFAULT 1,
   CHECK (role <> 'merchant' OR merchant_id IS NOT NULL)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
@@ -209,6 +211,19 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+-- Codes de vérification envoyés par e-mail à l'inscription.
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  code_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  sends INTEGER NOT NULL DEFAULT 1,
+  last_sent_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 -- Réglages techniques générés automatiquement (ex. clés VAPID des notifications push).
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
@@ -279,6 +294,9 @@ function migrate(db: DatabaseSync): void {
   }
   if (!columns("users").has("pending")) {
     db.exec("ALTER TABLE users ADD COLUMN pending INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("users").has("email_verified")) {
+    db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1");
   }
   if (!columns("deliveries").has("shipment_id")) {
     db.exec("ALTER TABLE deliveries ADD COLUMN shipment_id INTEGER REFERENCES shipments(id)");

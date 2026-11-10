@@ -15,7 +15,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: Pro
   const user = await requireUser(["admin"]);
   const country = countryOf(user);
   // Hors liste : inscriptions en attente (section dédiée) et comptes supprimés ou refusés (anonymisés, sans téléphone).
-  const couriers = listCouriers(user).filter((c) => !c.pending && (c.active || c.phone || c.email));
+  const couriers = listCouriers(user).filter((c) => !c.pending && c.email_verified && (c.active || c.phone || c.email));
   const pending = pendingCouriers(user);
   return (
     <>

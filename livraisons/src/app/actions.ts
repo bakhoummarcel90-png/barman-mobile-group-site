@@ -21,7 +21,9 @@ import * as shipments from "@/lib/shipments";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
 import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
 import * as notifications from "@/lib/notifications";
+import { mailConfigured } from "@/lib/mail";
 import * as signup from "@/lib/signup";
+import * as verification from "@/lib/verification";
 import { savePhoto } from "@/lib/storage";
 import { formValues, invalid, optional, str, UserError, type FormState } from "@/lib/validation";
 
@@ -64,6 +66,17 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (!user || !verifyPassword(password, user.password_hash)) {
     recordLoginFailure(key);
     return { ok: false, message: "Identifiant ou mot de passe incorrect.", values: { identifier } };
+  }
+  if (!user.email_verified) {
+    // Inscription jamais confirmée : nouveau code et page de saisie.
+    clearLoginFailures(key);
+    let token: string;
+    try {
+      token = await verification.startVerification(user.id);
+    } catch (err) {
+      return failure(err, fd);
+    }
+    redirect(`/inscription/verifier/${token}`);
   }
   if (user.pending)
     return {
@@ -453,29 +466,51 @@ export async function signupAction(_: FormState, fd: FormData): Promise<FormStat
   if (!company) redirect("/installation");
   if (!company.signup_open) return { ok: false, message: "Les inscriptions sont fermées pour le moment. Contactez l'entreprise de livraison." };
   const country = signup.getCountry(company.country_code);
+  const verify = mailConfigured();
   const kind = str(fd, "kind");
-  if (kind === "livreur") {
-    const parsed = signup.parseCourierSignup(fd, country);
-    if (!parsed.data) return invalid(parsed.errors, fd);
-    if (!(await signupAllowed())) return { ok: false, message: "Trop d'inscriptions depuis cette connexion. Réessayez dans une heure.", values: formValues(fd) };
-    try {
-      signup.registerCourier(company.id, parsed.data);
-    } catch (err) {
-      return failure(err, fd);
-    }
-    redirect("/inscription/merci");
-  }
-  const parsed = signup.parseMerchantSignup(fd, country);
+  const parsed = kind === "livreur" ? signup.parseCourierSignup(fd, country, verify) : signup.parseMerchantSignup(fd, country, verify);
   if (!parsed.data) return invalid(parsed.errors, fd);
   if (!(await signupAllowed())) return { ok: false, message: "Trop d'inscriptions depuis cette connexion. Réessayez dans une heure.", values: formValues(fd) };
   let userId: number;
+  let token: string | null = null;
   try {
-    userId = signup.registerMerchant(company.id, parsed.data);
+    userId =
+      kind === "livreur"
+        ? signup.registerCourier(company.id, parsed.data as signup.CourierSignup, verify)
+        : signup.registerMerchant(company.id, parsed.data as signup.MerchantSignup, verify);
+    if (verify) token = await verification.startVerification(userId);
   } catch (err) {
     return failure(err, fd);
   }
+  if (token) redirect(`/inscription/verifier/${token}`);
+  if (kind === "livreur") redirect("/inscription/merci");
   await createSession(userId);
   redirect("/tableau-de-bord?bienvenue=1");
+}
+
+/** Saisie du code reçu par e-mail : finalise l'inscription. */
+export async function verifyCodeAction(_: FormState, fd: FormData): Promise<FormState> {
+  const token = str(fd, "token");
+  let role: "merchant" | "courier";
+  let userId: number;
+  try {
+    userId = verification.checkCode(token, str(fd, "code"));
+    role = signup.completeSignup(userId);
+  } catch (err) {
+    return failure(err);
+  }
+  if (role === "courier") redirect("/inscription/merci?verifie=1");
+  await createSession(userId);
+  redirect("/tableau-de-bord?bienvenue=1");
+}
+
+export async function resendCodeAction(_: FormState, fd: FormData): Promise<FormState> {
+  try {
+    await verification.resendCode(str(fd, "token"));
+  } catch (err) {
+    return failure(err);
+  }
+  return { ok: true, message: "Un nouveau code vient d'être envoyé. Pensez à vérifier les courriers indésirables (spam)." };
 }
 
 export async function courierApplicationAction(_: FormState, fd: FormData): Promise<FormState> {

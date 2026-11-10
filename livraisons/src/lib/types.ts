@@ -59,6 +59,7 @@ export interface UserRow {
   updated_at: string;
   last_login_at: string | null;
   pending: number;
+  email_verified: number;
 }
 
 export interface Delivery {

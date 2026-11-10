@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
+import { mailConfigured } from "@/lib/mail";
 import { VEHICLES } from "@/lib/people";
 import { getCountry } from "@/lib/regions";
 import { signupCompany } from "@/lib/signup";
@@ -28,7 +29,7 @@ export default async function SignupPage() {
         </div>
         <div className="card p-5 sm:p-6">
           {company.signup_open ? (
-            <SignupForm phoneExample={country.phoneExample} neighborhoods={country.neighborhoods} vehicles={VEHICLES} />
+            <SignupForm phoneExample={country.phoneExample} neighborhoods={country.neighborhoods} vehicles={VEHICLES} emailRequired={mailConfigured()} />
           ) : (
             <div className="text-center">
               <p className="font-semibold text-ink">Les inscriptions sont fermées pour le moment.</p>

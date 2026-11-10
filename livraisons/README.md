@@ -74,6 +74,8 @@ Voir `.env.example`.
 | `DATA_DIR` | Dossier de la base SQLite et des photos (défaut : `./data`) |
 | `DEMO_PASSWORD` | Mot de passe des comptes créés par `npm run seed` |
 | `SETUP_CODE` | Code exigé sur la page /installation (recommandé en ligne) |
+| `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | Envoi du code de vérification d'inscription par e-mail (Brevo) |
+| `MAIL_OUTBOX_DIR` | Développement uniquement : écrit les e-mails dans ce dossier au lieu de les envoyer |
 | `HIDE_DEMO_HINT=1` | Masque l'encadré « comptes de démonstration » |
 | `INSECURE_COOKIES=1` | Uniquement pour tester `npm start` depuis un téléphone sur le réseau local en HTTP (en production, servez l'application en HTTPS) |
 
@@ -89,6 +91,26 @@ l'entreprise de livraison installée :
 - L'administrateur ouvre ou ferme les inscriptions dans **Paramètres** (lien à partager affiché).
 - Aucun SMS de vérification n'est envoyé (pas de fournisseur configuré) ; au plus 5 inscriptions par heure
   et par connexion. Désactivez tout compte suspect depuis sa fiche.
+
+## Code de vérification par e-mail
+
+Quand l'envoi d'e-mails est configuré, l'inscription demande un **e-mail obligatoire** et envoie un
+**code à 6 chiffres** (valable 15 minutes, 5 essais, renvoi possible toutes les 60 secondes, 5 envois au
+plus). Le compte n'est activé — et l'administrateur n'est prévenu — qu'après la saisie du bon code :
+commerçant / particulier connecté aussitôt, livreur placé en attente de validation. Une personne qui
+abandonne peut recommencer avec le même numéro ; se connecter avant d'avoir confirmé renvoie un code.
+
+**Configuration (Brevo, offre gratuite ~300 e-mails/jour)** :
+1. Créez un compte sur https://www.brevo.com.
+2. *Expéditeurs, domaines et IP dédiées* → ajoutez et **vérifiez** l'adresse d'envoi (ex. votre Gmail).
+3. *Paramètres SMTP & API* → onglet **Clés API** → générez une clé.
+4. Chez l'hébergeur (Railway → Variables) : `BREVO_API_KEY` = la clé, `MAIL_FROM_EMAIL` = l'adresse
+   vérifiée, `MAIL_FROM_NAME` = le nom affiché (facultatif). Redéployez.
+5. Paramètres de l'application → « Vérification par e-mail : activée ».
+
+L'envoi passe par l'API web de Brevo (HTTPS), pas par SMTP (souvent bloqué par les hébergeurs). Sans ces
+variables, l'inscription fonctionne sans code. Les codes par **SMS** ne sont pas branchés : il faudrait
+un fournisseur SMS (compte payant).
 
 ## Notifications de l'administrateur
 

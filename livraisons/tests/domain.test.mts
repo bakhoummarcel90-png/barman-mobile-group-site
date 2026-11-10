@@ -469,3 +469,122 @@ describe("notifications des administrateurs", async () => {
     assert.ok(received[0].size > 50, "contenu chiffré");
   });
 });
+
+describe("vérification de l'e-mail à l'inscription", async () => {
+  const SU = await import("../src/lib/signup");
+  const V = await import("../src/lib/verification");
+  const N = await import("../src/lib/notifications");
+  const { findLoginUser } = await import("../src/lib/people");
+  const { getCountry } = await import("../src/lib/regions");
+  const fs = await import("node:fs");
+  const outbox = mkdtempSync(path.join(process.env.TEST_TMP || tmpdir(), "outbox-"));
+  const fd = (o: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(o)) f.set(k, v);
+    return f;
+  };
+  const lastCode = (to: string): string => {
+    const files = fs.readdirSync(outbox).filter((f) => f.includes(to.replace(/[^a-z0-9@.]/gi, "_"))).sort();
+    const mail = JSON.parse(fs.readFileSync(path.join(outbox, files[files.length - 1]), "utf8"));
+    return /\b(\d{6})\b/.exec(mail.text)![1];
+  };
+
+  test("e-mail obligatoire quand la vérification est active", () => {
+    const r = SU.parseMerchantSignup(fd({ kind: "commercant", shop_name: "X Shop", contact_name: "Xa", phone: "70 000 44 01", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }), getCountry("SN"), true);
+    assert.match(r.errors.email, /obligatoire/);
+  });
+
+  test("commerçant : inactif et invisible avant le code, actif et notifié après", async () => {
+    process.env.MAIL_OUTBOX_DIR = outbox;
+    const before = N.unreadCount(admin);
+    const r = SU.parseMerchantSignup(
+      fd({ kind: "commercant", shop_name: "Code Shop", contact_name: "Coumba", phone: "70 000 44 02", email: "coumba@exemple.sn", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }),
+      getCountry("SN"),
+      true,
+    );
+    const userId = SU.registerMerchant(admin.companyId, r.data!, true);
+    const token = await V.startVerification(userId);
+    assert.equal(findLoginUser("coumba@exemple.sn")!.email_verified, 0);
+    assert.equal(N.unreadCount(admin), before, "pas de notification avant le code");
+    assert.equal(SU.merchantsToReview(admin).some((m) => m.name === "Code Shop"), false);
+    assert.equal(V.verificationTarget(token)!.email, "co****@exemple.sn");
+    assert.throws(() => V.checkCode(token, "000000" === lastCode("coumba@exemple.sn") ? "111111" : "000000"), /incorrect/);
+    const id = V.checkCode(token, lastCode("coumba@exemple.sn"));
+    assert.equal(SU.completeSignup(id), "merchant");
+    const u = findLoginUser("coumba@exemple.sn")!;
+    assert.equal(u.email_verified, 1);
+    assert.equal(u.merchant_active, 1);
+    assert.equal(N.unreadCount(admin), before + 1);
+    assert.throws(() => V.checkCode(token, "123456"), /plus valable/, "code à usage unique");
+    delete process.env.MAIL_OUTBOX_DIR;
+  });
+
+  test("livreur : en attente seulement après le code ; 5 essais au maximum ; renvoi limité", async () => {
+    process.env.MAIL_OUTBOX_DIR = outbox;
+    const r = SU.parseCourierSignup(
+      fd({ kind: "livreur", contact_name: "Ousmane", phone: "70 000 44 03", email: "ousmane@exemple.sn", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }),
+      getCountry("SN"),
+      true,
+    );
+    const id = SU.registerCourier(admin.companyId, r.data!, true);
+    const token = await V.startVerification(id);
+    assert.equal(SU.pendingCouriers(admin).some((c) => c.id === id), false, "pas encore à valider");
+    await assert.rejects(() => V.resendCode(token), /Patientez/);
+    const good = lastCode("ousmane@exemple.sn");
+    const bad = good === "999999" ? "888888" : "999999";
+    for (let i = 0; i < 5; i++) assert.throws(() => V.checkCode(token, bad));
+    assert.throws(() => V.checkCode(token, good), /Trop d'essais/);
+    run("UPDATE email_verifications SET last_sent_at = ? WHERE user_id = ?", new Date(Date.now() - 120_000).toISOString(), id);
+    await V.resendCode(token);
+    V.checkCode(token, lastCode("ousmane@exemple.sn"));
+    assert.equal(SU.completeSignup(id), "courier");
+    assert.equal(SU.pendingCouriers(admin).some((c) => c.id === id), true);
+    delete process.env.MAIL_OUTBOX_DIR;
+  });
+
+  test("code expiré refusé ; inscription abandonnée libérée", async () => {
+    process.env.MAIL_OUTBOX_DIR = outbox;
+    const data = SU.parseMerchantSignup(
+      fd({ kind: "particulier", contact_name: "Abandon", phone: "70 000 44 04", email: "abandon@exemple.sn", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }),
+      getCountry("SN"),
+      true,
+    ).data!;
+    const id = SU.registerMerchant(admin.companyId, data, true);
+    const token = await V.startVerification(id);
+    run("UPDATE email_verifications SET expires_at = ? WHERE user_id = ?", new Date(Date.now() - 1000).toISOString(), id);
+    assert.throws(() => V.checkCode(token, lastCode("abandon@exemple.sn")), /expiré/);
+    // La personne recommence avec le même numéro et le même e-mail : pas de « déjà utilisé ».
+    assert.doesNotThrow(() => SU.registerMerchant(admin.companyId, data, true));
+    assert.equal(V.verificationTarget(token), null, "ancien lien invalide");
+    delete process.env.MAIL_OUTBOX_DIR;
+  });
+
+  test("appel réel à l'API Brevo (serveur local)", async () => {
+    delete process.env.MAIL_OUTBOX_DIR;
+    const http = await import("node:http");
+    const { sendMail, verificationMail } = await import("../src/lib/mail");
+    const got: { headers: import("node:http").IncomingHttpHeaders; body: string }[] = [];
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        got.push({ headers: req.headers, body });
+        res.writeHead(201, { "content-type": "application/json" }).end('{"messageId":"<x>"}');
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as import("node:net").AddressInfo).port;
+    Object.assign(process.env, { BREVO_API_KEY: "test-key", MAIL_FROM_EMAIL: "noreply@exemple.sn", BREVO_API_URL: `http://127.0.0.1:${port}/v3/smtp/email` });
+    await sendMail(verificationMail("client@exemple.sn", "Client", "123456", "Dakar Express"));
+    server.close();
+    delete process.env.BREVO_API_KEY;
+    delete process.env.MAIL_FROM_EMAIL;
+    delete process.env.BREVO_API_URL;
+    assert.equal(got.length, 1);
+    assert.equal(got[0].headers["api-key"], "test-key");
+    const body = JSON.parse(got[0].body);
+    assert.equal(body.sender.email, "noreply@exemple.sn");
+    assert.equal(body.to[0].email, "client@exemple.sn");
+    assert.match(body.subject, /123456/);
+  });
+});
