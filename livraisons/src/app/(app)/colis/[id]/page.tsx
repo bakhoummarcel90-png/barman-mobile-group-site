@@ -19,6 +19,7 @@ import {
   formatWeight,
   getShipment,
   shipmentEvents,
+  trackingPath,
 } from "@/lib/shipments";
 
 export const metadata: Metadata = { title: "Colis" };
@@ -50,13 +51,13 @@ export default async function ShipmentPage({
   const ok = (await searchParams).ok;
   const events = shipmentEvents(user, s.id);
   const isAdmin = user.role === "admin";
-  const trackingUrl = `${await siteOrigin()}/suivi/${s.tracking_number}`;
+  const trackingUrl = `${await siteOrigin()}${trackingPath(s.tracking_number, s.merchant_name)}`;
   const carrierUrl = carrierTrackingUrl(s.carrier, s.carrier_tracking);
   const direction = directionOf(s, country.code);
   const final = SHIPMENT_FINAL.includes(s.status);
   const hasActiveDelivery = !!s.delivery_id && s.delivery_status !== "annulee" && s.delivery_status !== "retour_commercant";
   const canCreateDelivery = isAdmin && !final && direction === "import" && !hasActiveDelivery && ["arrive_destination", "douane", "pret", "incident"].includes(s.status);
-  const shareText = `Bonjour ${s.recipient_name}, votre colis (${s.description}) en provenance de ${shippingCountryName(s.origin_country)} est enregistré chez ${user.companyName}. Suivez-le ici : ${trackingUrl} (n° ${s.tracking_number}).`;
+  const shareText = `Bonjour ${s.recipient_name}, votre colis (${s.description}) en provenance de ${shippingCountryName(s.origin_country)} est enregistré${s.merchant_name ? ` par ${s.merchant_name}` : ""} chez ${user.companyName}. Suivez-le ici : ${trackingUrl} (n° ${s.tracking_number}).`;
 
   return (
     <>
