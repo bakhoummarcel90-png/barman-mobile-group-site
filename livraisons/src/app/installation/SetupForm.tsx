@@ -2,14 +2,15 @@
 
 import { useActionState } from "react";
 import { setupAction } from "../actions";
-import { Field, FormMessage, inputProps, SubmitButton } from "@/components/forms";
+import { Field, FormMessage, inputProps, SubmitButton, useFormKey } from "@/components/forms";
 
 export function SetupForm({ codeRequired, countries }: { codeRequired: boolean; countries: { code: string; name: string }[] }) {
   const [state, action] = useActionState(setupAction, {});
+  const formKey = useFormKey(state);
   const p = (n: string) => inputProps(n, state);
   const e = (n: string) => state.errors?.[n];
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <form key={formKey} action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
       {codeRequired ? (
         <Field label="Code d'installation" name="setup_code" error={e("setup_code")} hint="La valeur de SETUP_CODE définie chez votre hébergeur." required>

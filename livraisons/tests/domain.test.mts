@@ -57,6 +57,7 @@ function input(over: Partial<import("../src/lib/deliveries").DeliveryInput> = {}
     notes: null,
     scheduledAt: null,
     shipmentId: null,
+    newMerchantName: null,
     ...over,
   };
 }
@@ -307,5 +308,16 @@ describe("suppression de compte (exigence des stores)", () => {
     const c = run("INSERT INTO companies (name) VALUES ('Solo')").id;
     const a = run("INSERT INTO users (company_id, role, name, password_hash) VALUES (?, 'admin', 'Seul', ?)", c, hashPassword("motdepasse")).id;
     assert.throws(() => deleteOwnAccount(actor(a, c, "admin"), "motdepasse"), /seul administrateur/);
+  });
+});
+
+describe("commerçant saisi par son nom", () => {
+  test("crée le commerçant une seule fois, puis le réutilise", () => {
+    const a = D.createDelivery(admin, input({ merchantId: 0, newMerchantName: "Boutique Marcel" }));
+    const b = D.createDelivery(admin, input({ merchantId: 0, newMerchantName: "  boutique marcel " }));
+    const da = D.getDelivery(admin, a)!;
+    assert.equal(da.merchant_name, "Boutique Marcel");
+    assert.equal(D.getDelivery(admin, b)!.merchant_id, da.merchant_id, "pas de doublon");
+    assert.equal(D.getDelivery(adminB, a), null);
   });
 });

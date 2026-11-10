@@ -17,7 +17,8 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   const shipment = user.role === "admin" && Number.isInteger(colisId) && colisId > 0 ? getShipment(user, colisId) : null;
   const defaults: Record<string, string> = shipment
     ? {
-        merchant_id: shipment.merchant_id ? String(shipment.merchant_id) : "",
+        merchant_id: shipment.merchant_id ? String(shipment.merchant_id) : "new",
+        new_merchant_name: shipment.merchant_id ? "" : "Particuliers – colis internationaux",
         customer_name: shipment.recipient_name,
         customer_phone: shipment.recipient_phone,
         address: shipment.recipient_address ?? "",
@@ -37,8 +38,8 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
       {shipment ? (
         <div className="mb-4">
           <Alert tone="info">
-            Informations reprises du colis. Complétez le quartier et choisissez le commerçant facturé (créez par exemple un commerçant
-            « Particuliers – colis internationaux » pour les envois de particuliers). Le montant à collecter correspond aux frais d'envoi non payés.
+            Informations reprises du colis. Vérifiez le quartier et le commerçant (pour un particulier, « Particuliers – colis
+            internationaux » est proposé et sera créé automatiquement). Le montant à collecter correspond aux frais d'envoi non payés.
           </Alert>
         </div>
       ) : null}

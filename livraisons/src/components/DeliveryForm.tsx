@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveDeliveryAction } from "@/app/actions";
 import type { PaymentMethodConfig } from "@/lib/regions";
-import { Field, FormMessage, inputProps, SubmitButton } from "./forms";
+import { Field, FormMessage, inputProps, SubmitButton, useFormKey } from "./forms";
 
 interface Option {
   id: number;
@@ -42,11 +42,13 @@ export function DeliveryForm({
   shipmentId?: number;
 }) {
   const [state, action] = useActionState(saveDeliveryAction, {});
+  const formKey = useFormKey(state);
+  const [merchantChoice, setMerchantChoice] = useState(state.values?.merchant_id ?? defaults.merchant_id ?? "");
   const p = (name: string) => inputProps(name, state, defaults);
   const e = (name: string) => state.errors?.[name];
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form key={formKey} action={action} className="space-y-5" noValidate>
       {id ? <input type="hidden" name="id" value={id} /> : null}
       {shipmentId ? <input type="hidden" name="shipment_id" value={shipmentId} /> : null}
       <FormMessage state={state} />
@@ -58,18 +60,32 @@ export function DeliveryForm({
             <input {...p("reference")} placeholder="ex. CMD-1024" maxLength={40} />
           </Field>
           {isAdmin ? (
-            <Field label="Commerçant" name="merchant_id" error={e("merchant_id")} required>
-              <select {...p("merchant_id")}>
-                <option value="">Choisir…</option>
-                {merchants
-                  .filter((m) => m.active || String(m.id) === defaults.merchant_id)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </select>
-            </Field>
+            <div className="space-y-2">
+              <Field
+                label="Commerçant"
+                name="merchant_id"
+                error={e("merchant_id")}
+                hint="Pas dans la liste ? Choisissez « + Nouveau commerçant » et tapez son nom."
+                required
+              >
+                <select {...p("merchant_id")} onChange={(ev) => setMerchantChoice(ev.target.value)}>
+                  <option value="">Choisir…</option>
+                  <option value="new">+ Nouveau commerçant (taper le nom)</option>
+                  {merchants
+                    .filter((m) => m.active || String(m.id) === defaults.merchant_id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              {merchantChoice === "new" ? (
+                <Field label="Nom du nouveau commerçant" name="new_merchant_name" error={e("new_merchant_name")} hint="Il sera ajouté à la page Commerçants, où vous pourrez compléter sa fiche." required>
+                  <input {...p("new_merchant_name")} placeholder="ex. Boutique Marcel" maxLength={80} />
+                </Field>
+              ) : null}
+            </div>
           ) : null}
           <Field label="Date et heure prévues" name="scheduled_at" error={e("scheduled_at")} hint={`Heure locale (${city}).`}>
             <input {...p("scheduled_at")} type="datetime-local" />
