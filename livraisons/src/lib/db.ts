@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS merchants (
   payout_account TEXT,
   notes TEXT,
   active INTEGER NOT NULL DEFAULT 1,
+  -- 1 = inscrit lui-même, pas encore vérifié par l'administrateur
+  review_pending INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -184,6 +186,35 @@ CREATE TABLE IF NOT EXISTS shipment_events (
 );
 CREATE INDEX IF NOT EXISTS idx_shipment_events ON shipment_events(shipment_id, id);
 
+-- Notifications pour les administrateurs (une ligne par destinataire).
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  title TEXT NOT NULL,
+  body TEXT,
+  url TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at);
+
+-- Abonnements aux notifications push (un par appareil / navigateur).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- Réglages techniques générés automatiquement (ex. clés VAPID des notifications push).
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 -- Journal : changements de statut, encaissements, modifications, gestion des comptes.
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
@@ -242,6 +273,9 @@ function migrate(db: DatabaseSync): void {
     new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
   if (!columns("companies").has("signup_open")) {
     db.exec("ALTER TABLE companies ADD COLUMN signup_open INTEGER NOT NULL DEFAULT 1");
+  }
+  if (!columns("merchants").has("review_pending")) {
+    db.exec("ALTER TABLE merchants ADD COLUMN review_pending INTEGER NOT NULL DEFAULT 0");
   }
   if (!columns("users").has("pending")) {
     db.exec("ALTER TABLE users ADD COLUMN pending INTEGER NOT NULL DEFAULT 0");

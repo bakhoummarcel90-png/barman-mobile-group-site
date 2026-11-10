@@ -306,7 +306,8 @@ export function setMerchantActive(actor: Actor, id: number, active: boolean): vo
   requireAdmin(actor);
   transaction(() => {
     const m = getMerchant(actor, id);
-    run("UPDATE merchants SET active = ?, updated_at = ? WHERE id = ?", active ? 1 : 0, new Date().toISOString(), id);
+    // Désactiver ou réactiver vaut décision sur une inscription à vérifier.
+    run("UPDATE merchants SET active = ?, review_pending = 0, updated_at = ? WHERE id = ?", active ? 1 : 0, new Date().toISOString(), id);
     if (!active) for (const u of merchantAccounts(actor, id)) revokeSessionsFor(u.id);
     logEvent({
       companyId: actor.companyId,

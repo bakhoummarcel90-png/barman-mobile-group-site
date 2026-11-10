@@ -379,3 +379,93 @@ describe("inscription publique", async () => {
     assert.equal(findLoginUser("70 000 55 03"), undefined, "coordonnées effacées");
   });
 });
+
+describe("notifications des administrateurs", async () => {
+  const N = await import("../src/lib/notifications");
+  const SU = await import("../src/lib/signup");
+  const { getCountry } = await import("../src/lib/regions");
+  const fd = (o: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(o)) f.set(k, v);
+    return f;
+  };
+
+  test("une inscription notifie les administrateurs de l'entreprise uniquement", () => {
+    const before = N.unreadCount(admin);
+    const beforeB = N.unreadCount(adminB);
+    const r = SU.parseCourierSignup(
+      fd({ kind: "livreur", contact_name: "Notif Test", phone: "70 000 77 01", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }),
+      getCountry("SN"),
+    );
+    SU.registerCourier(admin.companyId, r.data!);
+    assert.equal(N.unreadCount(admin), before + 1);
+    assert.equal(N.unreadCount(adminB), beforeB);
+    assert.equal(N.unreadCount(merchant), 0);
+    const last = N.listNotifications(admin, 1)[0];
+    assert.equal(last.title, "Nouveau livreur à valider");
+    assert.equal(last.url, "/livreurs#a-valider");
+    N.markAllRead(admin);
+    assert.equal(N.unreadCount(admin), 0);
+  });
+
+  test("commerçant inscrit : notification + à vérifier, puis vérifié", () => {
+    const r = SU.parseMerchantSignup(
+      fd({ kind: "commercant", shop_name: "Notif Boutique", contact_name: "Ndeye", phone: "70 000 77 02", password: "motdepasse", confirm_password: "motdepasse", accept: "1" }),
+      getCountry("SN"),
+    );
+    SU.registerMerchant(admin.companyId, r.data!);
+    assert.equal(N.listNotifications(admin, 1)[0].title, "Nouveau commerçant inscrit");
+    const m = SU.merchantsToReview(admin).find((x) => x.name === "Notif Boutique")!;
+    assert.ok(m);
+    assert.equal(SU.merchantsToReview(adminB).length, 0);
+    SU.markMerchantVerified(admin, m.id);
+    assert.equal(SU.merchantsToReview(admin).some((x) => x.id === m.id), false);
+    assert.throws(() => SU.markMerchantVerified(admin, m.id), /déjà vérifiée/);
+  });
+
+  test("clés VAPID générées une seule fois", () => {
+    const a = N.vapidKeys();
+    const b = N.vapidKeys();
+    assert.equal(a.publicKey, b.publicKey);
+    assert.match(a.publicKey, /^[A-Za-z0-9_-]{80,}$/);
+  });
+
+  test("envoi push réel vers un serveur de notifications (local, HTTPS)", async () => {
+    const https = await import("node:https");
+    const crypto = await import("node:crypto");
+    const { execFileSync } = await import("node:child_process");
+    const { mkdtempSync, readFileSync } = await import("node:fs");
+    // Certificat de test pour 127.0.0.1, approuvé explicitement (la vérification TLS reste active).
+    const dir = mkdtempSync(path.join(process.env.TEST_TMP || tmpdir(), "push-tls-"));
+    execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1",
+      "-addext", "subjectAltName=IP:127.0.0.1", "-keyout", `${dir}/key.pem`, "-out", `${dir}/cert.pem`], { stdio: "ignore" });
+    const cert = readFileSync(`${dir}/cert.pem`);
+    const received: { headers: import("node:http").IncomingHttpHeaders; size: number }[] = [];
+    const server = https.createServer({ key: readFileSync(`${dir}/key.pem`), cert }, (req, res) => {
+      let size = 0;
+      req.on("data", (c) => (size += c.length));
+      req.on("end", () => {
+        received.push({ headers: req.headers, size });
+        res.writeHead(201).end();
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as import("node:net").AddressInfo).port;
+    (https.globalAgent.options as { ca?: Buffer }).ca = cert;
+    const ecdh = crypto.createECDH("prime256v1");
+    ecdh.generateKeys();
+    run(
+      "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)",
+      admin.id,
+      `https://127.0.0.1:${port}/push/abc`,
+      ecdh.getPublicKey().toString("base64url"),
+      crypto.randomBytes(16).toString("base64url"),
+    );
+    await N.sendTestPush(admin);
+    server.close();
+    assert.equal(received.length, 1, "le message a été envoyé");
+    assert.match(String(received[0].headers.authorization), /^vapid t=/);
+    assert.equal(received[0].headers["content-encoding"], "aes128gcm");
+    assert.ok(received[0].size > 50, "contenu chiffré");
+  });
+});

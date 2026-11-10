@@ -37,6 +37,7 @@ export interface Merchant {
   payout_account: string | null;
   notes: string | null;
   active: number;
+  review_pending: number;
   created_at: string;
   updated_at: string;
 }

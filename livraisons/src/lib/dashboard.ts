@@ -71,6 +71,12 @@ function actionsFor(actor: Actor): DashboardAction[] {
   const out: DashboardAction[] = [];
 
   if (actor.role === "admin") {
+    const applicants = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1", actor.companyId)!.n;
+    if (applicants)
+      out.push({ label: "Livreurs à valider", detail: "Inscriptions reçues depuis la page d'inscription", count: applicants, href: "/livreurs#a-valider", tone: "warning" });
+    const merchantsToCheck = get<{ n: number }>("SELECT COUNT(*) AS n FROM merchants WHERE company_id = ? AND review_pending = 1", actor.companyId)!.n;
+    if (merchantsToCheck)
+      out.push({ label: "Nouveaux commerçants à vérifier", detail: "Inscrits eux-mêmes, comptes déjà actifs", count: merchantsToCheck, href: "/commercants#a-verifier", tone: "warning" });
     const toAssign = count("d.status = 'a_attribuer'");
     if (toAssign)
       out.push({ label: "Commandes à attribuer", detail: "Choisissez un livreur", count: toAssign, href: "/livraisons#a-attribuer", tone: "warning" });
@@ -88,9 +94,6 @@ function actionsFor(actor: Actor): DashboardAction[] {
     const holders = courierBalances(actor).length;
     if (holders)
       out.push({ label: "Livreurs avec de l'argent à remettre", detail: "Enregistrez les remises à la caisse", count: holders, href: "/encaissements#livreurs", tone: "info" });
-    const applicants = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1", actor.companyId)!.n;
-    if (applicants)
-      out.push({ label: "Livreurs à valider", detail: "Inscriptions reçues depuis la page d'inscription", count: applicants, href: "/livreurs#a-valider", tone: "warning" });
     const colis = shipmentCounts(actor);
     if (colis.arrived)
       out.push({ label: "Colis internationaux arrivés", detail: "Organisez la livraison au destinataire", count: colis.arrived, href: "/colis?statut=actifs&sens=import", tone: "warning" });

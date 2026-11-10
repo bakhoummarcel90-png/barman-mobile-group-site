@@ -1,5 +1,6 @@
 import { all, get, run, transaction } from "./db";
 import { logEvent } from "./events";
+import { notifyAdmins } from "./notifications";
 import { normalizePhone } from "./format";
 import { hashPassword } from "./password";
 import { assertLoginAvailable, VEHICLES } from "./people";
@@ -88,8 +89,8 @@ export function registerMerchant(companyId: number, input: MerchantSignup): numb
   return transaction(() => {
     assertLoginAvailable(input.email, input.phone);
     const merchantId = run(
-      `INSERT INTO merchants (company_id, name, contact_name, phone, email, address, neighborhood, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO merchants (company_id, name, contact_name, phone, email, address, neighborhood, notes, review_pending)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       companyId,
       input.shopName,
       input.contactName,
@@ -114,6 +115,11 @@ export function registerMerchant(companyId: number, input: MerchantSignup): numb
       merchantId,
       kind: "account",
       message: `${input.kind === "particulier" ? "Particulier" : "Commerçant"} ${input.shopName} inscrit via la page d'inscription`,
+    });
+    notifyAdmins(companyId, {
+      title: input.kind === "particulier" ? "Nouveau particulier inscrit" : "Nouveau commerçant inscrit",
+      body: `${input.shopName} (${input.contactName}) — compte actif, à vérifier.`,
+      url: "/commercants#a-verifier",
     });
     return userId;
   });
@@ -156,6 +162,11 @@ export function registerCourier(companyId: number, input: CourierSignup): number
       "Inscrit lui-même",
     ).id;
     logEvent({ companyId, userId: id, subjectUserId: id, kind: "account", message: `Livreur ${input.name} inscrit, en attente de validation` });
+    notifyAdmins(companyId, {
+      title: "Nouveau livreur à valider",
+      body: `${input.name}${input.vehicle ? ` (${input.vehicle})` : ""} attend votre validation pour se connecter.`,
+      url: "/livreurs#a-valider",
+    });
     return id;
   });
 }
@@ -202,6 +213,21 @@ export function rejectCourier(actor: Actor, userId: number): string {
     logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: userId, kind: "account", message: `Inscription de livreur refusée (${u.name})` });
     return u.name;
   });
+}
+
+/** Commerçants et particuliers inscrits eux-mêmes, pas encore vérifiés. */
+export function merchantsToReview(actor: Actor): { id: number; name: string; contact_name: string | null; phone: string | null; email: string | null; neighborhood: string | null; notes: string | null; created_at: string; active: number }[] {
+  if (actor.role !== "admin") return [];
+  return all("SELECT id, name, contact_name, phone, email, neighborhood, notes, created_at, active FROM merchants WHERE company_id = ? AND review_pending = 1 ORDER BY id", actor.companyId);
+}
+
+export function markMerchantVerified(actor: Actor, merchantId: number): string {
+  requireAdmin(actor);
+  const m = get<{ name: string }>("SELECT name FROM merchants WHERE id = ? AND company_id = ? AND review_pending = 1", merchantId, actor.companyId);
+  if (!m) throw new UserError("Inscription introuvable ou déjà vérifiée.");
+  run("UPDATE merchants SET review_pending = 0, updated_at = ? WHERE id = ?", new Date().toISOString(), merchantId);
+  logEvent({ companyId: actor.companyId, userId: actor.id, merchantId, kind: "account", message: `Inscription de ${m.name} vérifiée` });
+  return m.name;
 }
 
 export function setSignupOpen(actor: Actor, open: boolean): void {
