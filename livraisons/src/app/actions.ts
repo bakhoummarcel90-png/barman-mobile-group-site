@@ -20,6 +20,7 @@ import * as people from "@/lib/people";
 import * as shipments from "@/lib/shipments";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
 import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
+import * as notifications from "@/lib/notifications";
 import * as signup from "@/lib/signup";
 import { savePhoto } from "@/lib/storage";
 import { formValues, invalid, optional, str, UserError, type FormState } from "@/lib/validation";
@@ -501,4 +502,44 @@ export async function signupSettingAction(_: FormState, fd: FormData): Promise<F
   }
   refresh();
   return { ok: true, message: open ? "Inscriptions ouvertes." : "Inscriptions fermées : la page d'inscription n'accepte plus de nouveaux comptes." };
+}
+
+/* ------------------------------------------------------------------ */
+/* Notifications                                                        */
+/* ------------------------------------------------------------------ */
+
+export async function verifyMerchantAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  try {
+    signup.markMerchantVerified(actor, idFrom(fd, "merchant_id"));
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  redirect("/commercants?ok=verifie");
+}
+
+export async function markAllReadAction(): Promise<void> {
+  const actor = await requireUser(["admin"]);
+  notifications.markAllRead(actor);
+  refresh();
+}
+
+export async function savePushSubscriptionAction(sub: { endpoint: string; p256dh: string; auth: string }): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  try {
+    notifications.savePushSubscription(actor, sub);
+    await notifications.sendTestPush(actor);
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  return { ok: true, message: "Notifications activées sur cet appareil : une notification de test vient d'être envoyée." };
+}
+
+export async function deletePushSubscriptionAction(endpoint: string): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  notifications.deletePushSubscription(actor, endpoint);
+  refresh();
+  return { ok: true, message: "Notifications désactivées sur cet appareil." };
 }

@@ -6,6 +6,7 @@ import { KeyRound, Power } from "lucide-react";
 import {
   changePasswordAction,
   courierApplicationAction,
+  verifyMerchantAction,
   signupSettingAction,
   deleteAccountAction,
   createAdminAction,
@@ -354,6 +355,21 @@ export function SignupToggle({ open }: { open: boolean }) {
             ? "Plus personne ne pourra créer de compte depuis la page d'inscription. Les comptes existants ne changent pas."
             : "Commerçants et particuliers pourront créer leur compte ; les livreurs devront être acceptés par vous."
         }
+      />
+    </ActionForm>
+  );
+}
+
+/** Marquer un commerçant inscrit lui-même comme vérifié. */
+export function MerchantReview({ merchantId, name }: { merchantId: number; name: string }) {
+  return (
+    <ActionForm action={verifyMerchantAction} hidden={{ merchant_id: merchantId }}>
+      <ConfirmSubmit
+        label="Marquer comme vérifié"
+        className="btn-primary btn-sm"
+        title={`${name} est vérifié ?`}
+        message="L'inscription quitte la liste « à vérifier ». Le compte reste actif."
+        confirmLabel="Vérifié"
       />
     </ActionForm>
   );

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Banknote,
+  Bell,
   Bike,
   ClipboardList,
   LayoutDashboard,
@@ -64,12 +65,15 @@ export function AppNav({
   roleLabel,
   companyName,
   logout,
+  unread = 0,
 }: {
   role: Role;
   userName: string;
   roleLabel: string;
   companyName: string;
   logout: () => Promise<void>;
+  /** Notifications non lues (administrateur). */
+  unread?: number;
 }) {
   const pathname = usePathname();
   // Le menu se referme tout seul quand on change de page.
@@ -121,6 +125,22 @@ export function AppNav({
     </nav>
   );
 
+  const bell =
+    role === "admin" ? (
+      <Link
+        href="/notifications"
+        className={cx("relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-slate-100", isActive(pathname, "/notifications") && "bg-brand-50 text-brand-800")}
+        aria-label={unread ? `Notifications : ${unread} non lue(s)` : "Notifications"}
+      >
+        <Bell className="h-5 w-5" aria-hidden />
+        {unread ? (
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">
+            {unread > 99 ? "99+" : unread}
+          </span>
+        ) : null}
+      </Link>
+    ) : null;
+
   const brand = (
     <div className="flex items-center gap-2.5 px-5 py-4">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
@@ -137,7 +157,10 @@ export function AppNav({
     <>
       {/* Ordinateur */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-        {brand}
+        <div className="flex items-center justify-between pr-3">
+          {brand}
+          {bell}
+        </div>
         {links}
         {account}
       </aside>
@@ -145,9 +168,12 @@ export function AppNav({
       {/* Téléphone : barre du haut */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-2 backdrop-blur lg:hidden">
         {brand}
-        <button type="button" className="btn-ghost" onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
-          <Menu className="h-6 w-6" aria-hidden />
-        </button>
+        <div className="flex items-center gap-1">
+          {bell}
+          <button type="button" className="btn-ghost" onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
+            <Menu className="h-6 w-6" aria-hidden />
+          </button>
+        </div>
       </header>
 
       {/* Téléphone : menu complet */}

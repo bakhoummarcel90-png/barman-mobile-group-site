@@ -90,6 +90,25 @@ l'entreprise de livraison installée :
 - Aucun SMS de vérification n'est envoyé (pas de fournisseur configuré) ; au plus 5 inscriptions par heure
   et par connexion. Désactivez tout compte suspect depuis sa fiche.
 
+## Notifications de l'administrateur
+
+À chaque inscription (livreur à valider, commerçant ou particulier à vérifier), les administrateurs
+reçoivent une notification :
+
+- **dans l'application** : cloche 🔔 avec compteur (en haut), page `/notifications` ; un clic ouvre
+  directement la liste à traiter ;
+- **sur leurs appareils**, même application fermée (notifications push du navigateur), après avoir
+  cliqué « Activer les notifications sur cet appareil » sur la page Notifications, sur chaque appareil.
+  Sur iPhone, il faut d'abord installer l'application sur l'écran d'accueil (iOS 16.4 ou plus récent).
+
+Les clés de chiffrement des notifications (VAPID) sont générées automatiquement au premier usage et
+conservées dans la base : rien à configurer. Aucun e-mail ni SMS n'est envoyé (il faudrait un service
+d'envoi externe, avec ses identifiants).
+
+Les commerçants et particuliers inscrits eux-mêmes restent actifs, mais apparaissent dans
+« Commerçants → Nouveaux inscrits à vérifier » jusqu'à ce que l'administrateur les marque vérifiés
+(ou les désactive).
+
 ## Rôles et accès
 
 - **Administrateur** : tout ce qui concerne son entreprise — commandes, attribution, livreurs,
@@ -152,6 +171,8 @@ Défini dans `src/lib/db.ts` (créé automatiquement au premier lancement) :
 - `events` — journal (statuts, modifications, encaissements, comptes)
 - `shipments` — colis internationaux (trajet, transporteur, expéditeur, destinataire, contenu, frais)
 - `shipment_events` — étapes de suivi des colis (lieu visible du client, note interne)
+- `notifications`, `push_subscriptions`, `app_settings` — notifications des administrateurs, appareils
+  abonnés, clés VAPID générées automatiquement
 
 Les évolutions du schéma sur une base existante sont appliquées automatiquement au démarrage (`migrate()`).
 
