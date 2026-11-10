@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { companyAction } from "@/app/actions";
 import { ActionForm, Field, SubmitButton } from "@/components/forms";
-import { AdminForm, ResetPassword, ToggleUser } from "@/components/PeopleForms";
+import { headers } from "next/headers";
+import { AdminForm, ResetPassword, SignupToggle, ToggleUser } from "@/components/PeopleForms";
 import { ActiveBadge, Card, DefinitionList, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf, getCompany } from "@/lib/company";
@@ -15,6 +16,9 @@ export default async function SettingsPage() {
   const country = countryOf(user);
   const company = getCompany(user.companyId);
   const admins = listAdmins(user);
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3001";
+  const origin = `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`;
 
   return (
     <>
@@ -75,6 +79,23 @@ export default async function SettingsPage() {
             Une intégration automatique demande un contrat marchand et des clés API fournies par chaque opérateur (opérateurs de mobile money,
             fournisseur SMS, WhatsApp Business, transporteurs). Aucune connexion n'est simulée dans cette version : voir le fichier README pour les paramètres à prévoir.
           </p>
+        </Card>
+
+        <Card title="Inscriptions publiques" className="lg:col-span-2">
+          <p className="text-sm text-ink-soft">
+            {company.signup_open
+              ? "Ouvertes : commerçants et particuliers créent leur compte eux-mêmes ; les livreurs attendent votre validation (page Livreurs)."
+              : "Fermées : seuls vous et les autres administrateurs pouvez créer des comptes."}
+          </p>
+          <p className="mt-2 text-sm">
+            Lien à partager :{" "}
+            <a href={`${origin}/inscription`} target="_blank" rel="noopener noreferrer" className="link break-all">
+              {origin}/inscription
+            </a>
+          </p>
+          <div className="mt-3">
+            <SignupToggle open={!!company.signup_open} />
+          </div>
         </Card>
 
         <Card title="Administrateurs" className="lg:col-span-2">

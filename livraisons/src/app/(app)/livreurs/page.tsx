@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bike, Plus } from "lucide-react";
-import { ActiveBadge, EmptyState, PageHeader } from "@/components/ui";
+import { ActiveBadge, EmptyState, OkBanner, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
-import { formatMoney, formatPhone } from "@/lib/format";
+import { formatDateTime, formatMoney, formatPhone } from "@/lib/format";
 import { listCouriers } from "@/lib/people";
+import { pendingCouriers } from "@/lib/signup";
+import { CourierApplication } from "@/components/PeopleForms";
 
 export const metadata: Metadata = { title: "Livreurs" };
 
-export default async function CouriersPage() {
+export default async function CouriersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requireUser(["admin"]);
   const country = countryOf(user);
-  const couriers = listCouriers(user);
+  // Hors liste : inscriptions en attente (section dédiée) et comptes supprimés ou refusés (anonymisés, sans téléphone).
+  const couriers = listCouriers(user).filter((c) => !c.pending && (c.active || c.phone || c.email));
+  const pending = pendingCouriers(user);
   return (
     <>
       <PageHeader
@@ -24,6 +28,38 @@ export default async function CouriersPage() {
           </Link>
         }
       />
+      <OkBanner
+        code={(await searchParams).ok}
+        messages={{
+          accepte: "Livreur accepté : il peut se connecter et vous pouvez lui attribuer des courses.",
+          refuse: "Inscription refusée : le compte est fermé et ses coordonnées effacées.",
+        }}
+      />
+      {pending.length ? (
+        <section id="a-valider" className="card mb-5 scroll-mt-20 border-amber-300 p-4 sm:p-5">
+          <h2 className="font-semibold text-ink">Inscriptions à valider ({pending.length})</h2>
+          <p className="mt-1 text-sm text-ink-muted">Ces personnes se sont inscrites comme livreur. Vérifiez leur identité (appel, rencontre) avant d'accepter.</p>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {pending.map((c) => (
+              <li key={c.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-ink">{c.name}</p>
+                  <p className="text-sm text-ink-muted">
+                    <a href={`tel:${c.phone}`} className="link">
+                      {formatPhone(c.phone, country)}
+                    </a>
+                    {c.vehicle ? ` · ${c.vehicle}` : ""}
+                    {c.zone ? ` · ${c.zone}` : ""}
+                    {c.email ? ` · ${c.email}` : ""}
+                  </p>
+                  <p className="text-xs text-ink-muted">Inscrit le {formatDateTime(c.created_at, country)}</p>
+                </div>
+                <CourierApplication userId={c.id} name={c.name} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {couriers.length ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {couriers.map((c) => (

@@ -77,6 +77,19 @@ Voir `.env.example`.
 | `HIDE_DEMO_HINT=1` | Masque l'encadré « comptes de démonstration » |
 | `INSECURE_COOKIES=1` | Uniquement pour tester `npm start` depuis un téléphone sur le réseau local en HTTP (en production, servez l'application en HTTPS) |
 
+## Inscription publique
+
+La page **`/inscription`** (lien « Créer un compte » sur la page de connexion) permet de rejoindre
+l'entreprise de livraison installée :
+
+- **Commerçant** ou **particulier** : compte créé et utilisable tout de suite (commandes, colis, suivi) ;
+  l'administrateur voit ces comptes dans « Commerçants ».
+- **Livreur** : demande **en attente** ; l'administrateur l'accepte ou la refuse dans « Livreurs »
+  (alerte au tableau de bord). Un refus efface les coordonnées.
+- L'administrateur ouvre ou ferme les inscriptions dans **Paramètres** (lien à partager affiché).
+- Aucun SMS de vérification n'est envoyé (pas de fournisseur configuré) ; au plus 5 inscriptions par heure
+  et par connexion. Désactivez tout compte suspect depuis sa fiche.
+
 ## Rôles et accès
 
 - **Administrateur** : tout ce qui concerne son entreprise — commandes, attribution, livreurs,

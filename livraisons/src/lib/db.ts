@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS companies (
   currency TEXT NOT NULL DEFAULT 'XOF',
   timezone TEXT NOT NULL DEFAULT 'Africa/Dakar',
   phone TEXT,
+  -- 1 = inscription publique ouverte (/inscription)
+  signup_open INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -58,6 +60,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   last_login_at TEXT,
+  -- 1 = livreur inscrit lui-même, en attente de validation par l'administrateur
+  pending INTEGER NOT NULL DEFAULT 0,
   CHECK (role <> 'merchant' OR merchant_id IS NOT NULL)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
@@ -236,6 +240,12 @@ function open(): DatabaseSync {
 function migrate(db: DatabaseSync): void {
   const columns = (table: string) =>
     new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+  if (!columns("companies").has("signup_open")) {
+    db.exec("ALTER TABLE companies ADD COLUMN signup_open INTEGER NOT NULL DEFAULT 1");
+  }
+  if (!columns("users").has("pending")) {
+    db.exec("ALTER TABLE users ADD COLUMN pending INTEGER NOT NULL DEFAULT 0");
+  }
   if (!columns("deliveries").has("shipment_id")) {
     db.exec("ALTER TABLE deliveries ADD COLUMN shipment_id INTEGER REFERENCES shipments(id)");
   }

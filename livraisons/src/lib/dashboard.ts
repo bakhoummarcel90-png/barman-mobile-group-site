@@ -88,6 +88,9 @@ function actionsFor(actor: Actor): DashboardAction[] {
     const holders = courierBalances(actor).length;
     if (holders)
       out.push({ label: "Livreurs avec de l'argent à remettre", detail: "Enregistrez les remises à la caisse", count: holders, href: "/encaissements#livreurs", tone: "info" });
+    const applicants = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1", actor.companyId)!.n;
+    if (applicants)
+      out.push({ label: "Livreurs à valider", detail: "Inscriptions reçues depuis la page d'inscription", count: applicants, href: "/livreurs#a-valider", tone: "warning" });
     const colis = shipmentCounts(actor);
     if (colis.arrived)
       out.push({ label: "Colis internationaux arrivés", detail: "Organisez la livraison au destinataire", count: colis.arrived, href: "/colis?statut=actifs&sens=import", tone: "warning" });

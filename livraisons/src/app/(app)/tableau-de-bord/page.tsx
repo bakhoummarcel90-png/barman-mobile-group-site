@@ -19,7 +19,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const user = await requireUser();
   if (user.role === "courier") redirect("/livraisons");
   const country = countryOf(user);
-  const filters = parseFilters(await searchParams, country.timezone, "7d");
+  const sp = await searchParams;
+  const filters = parseFilters(sp, country.timezone, "7d");
   const data = dashboardData(user, filters);
   const events = recentEvents(user, { limit: 12, merchantId: filters.merchantId, courierId: filters.courierId });
   const isAdmin = user.role === "admin";
@@ -37,6 +38,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         }
       />
 
+      {sp.bienvenue === "1" ? (
+        <div className="mb-4">
+          <Alert tone="success">
+            Bienvenue ! Votre compte est créé. Créez votre première livraison avec « Nouvelle commande », ou enregistrez un envoi
+            international dans « Colis ».
+          </Alert>
+        </div>
+      ) : null}
       <FilterBar
         filters={filters}
         merchants={isAdmin ? merchantOptions(user) : []}

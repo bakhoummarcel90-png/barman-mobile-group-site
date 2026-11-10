@@ -20,6 +20,7 @@ export interface Company {
   currency: string;
   timezone: string;
   phone: string | null;
+  signup_open: number;
   created_at: string;
 }
 
@@ -56,6 +57,7 @@ export interface UserRow {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  pending: number;
 }
 
 export interface Delivery {
