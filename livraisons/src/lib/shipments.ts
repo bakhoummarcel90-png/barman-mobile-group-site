@@ -543,6 +543,8 @@ export interface PublicTracking {
   company_name: string;
   company_phone: string | null;
   company_country: string;
+  /** Boutique cliente (affichée « Colis de … ») ; null pour un particulier. */
+  merchant_name: string | null;
   status: ShipmentStatus;
   transport_mode: string;
   origin: string;
@@ -556,9 +558,10 @@ export interface PublicTracking {
 export function publicTracking(raw: string): PublicTracking | null {
   const n = normalizeTrackingNumber(raw);
   if (!/^SL[A-Z0-9]{8}$/.test(n)) return null;
-  const s = get<Shipment & { company_name: string; company_phone: string | null; company_country: string }>(
-    `SELECT s.*, c.name AS company_name, c.phone AS company_phone, c.country_code AS company_country
-       FROM shipments s JOIN companies c ON c.id = s.company_id WHERE s.tracking_number = ?`,
+  const s = get<Shipment & { company_name: string; company_phone: string | null; company_country: string; merchant_name: string | null }>(
+    `SELECT s.*, c.name AS company_name, c.phone AS company_phone, c.country_code AS company_country, m.name AS merchant_name
+       FROM shipments s JOIN companies c ON c.id = s.company_id LEFT JOIN merchants m ON m.id = s.merchant_id
+      WHERE s.tracking_number = ?`,
     n,
   );
   if (!s) return null;
@@ -571,6 +574,7 @@ export function publicTracking(raw: string): PublicTracking | null {
     company_name: s.company_name,
     company_phone: s.company_phone,
     company_country: s.company_country,
+    merchant_name: s.merchant_name,
     status: s.status,
     transport_mode: s.transport_mode,
     origin: [s.origin_city, shippingCountryName(s.origin_country)].filter(Boolean).join(", "),
@@ -590,4 +594,26 @@ export function carrierTrackingUrl(carrier: string | null, number: string | null
   if (c.includes("fedex")) return `https://www.fedex.com/fedextrack/?trknbr=${n}`;
   if (c.includes("ups")) return `https://www.ups.com/track?tracknum=${n}`;
   return null;
+}
+
+/** « Boutique Marcel & Fils » → « boutique-marcel-fils » (pour les liens de suivi). */
+export function slugify(name: string): string {
+  return name
+    .replace(/œ/gi, "oe")
+    .replace(/æ/gi, "ae")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+/**
+ * Chemin public de suivi : avec le nom de la boutique quand le colis en a une
+ * (« /suivi/boutique-marcel/SLKCY2BBWN »), sinon « /suivi/SLKCY2BBWN ».
+ */
+export function trackingPath(trackingNumber: string, merchantName: string | null): string {
+  const slug = merchantName ? slugify(merchantName) : "";
+  return slug ? `/suivi/${slug}/${trackingNumber}` : `/suivi/${trackingNumber}`;
 }

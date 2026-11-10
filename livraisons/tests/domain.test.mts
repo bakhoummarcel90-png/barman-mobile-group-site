@@ -321,3 +321,13 @@ describe("commerçant saisi par son nom", () => {
     assert.equal(D.getDelivery(adminB, a), null);
   });
 });
+
+describe("liens de suivi au nom de la boutique", () => {
+  test("slug et chemin", async () => {
+    const S = await import("../src/lib/shipments");
+    assert.equal(S.slugify("Boutique Marcel & Fils"), "boutique-marcel-fils");
+    assert.equal(S.slugify("Sacré-Cœur Épices"), "sacre-coeur-epices");
+    assert.equal(S.trackingPath("SLAAAA2222", "Keur Sokhna Wax"), "/suivi/keur-sokhna-wax/SLAAAA2222");
+    assert.equal(S.trackingPath("SLAAAA2222", null), "/suivi/SLAAAA2222");
+  });
+});
