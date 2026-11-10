@@ -13,7 +13,18 @@ const KINDS = [
   { value: "livreur", label: "Livreur", hint: "Effectuer des livraisons", icon: Bike },
 ] as const;
 
-export function SignupForm({ phoneExample, neighborhoods, vehicles }: { phoneExample: string; neighborhoods: string[]; vehicles: string[] }) {
+export function SignupForm({
+  phoneExample,
+  neighborhoods,
+  vehicles,
+  emailRequired,
+}: {
+  phoneExample: string;
+  neighborhoods: string[];
+  vehicles: string[];
+  /** Vérification par e-mail configurée : e-mail obligatoire, code envoyé. */
+  emailRequired: boolean;
+}) {
   const [state, action] = useActionState(signupAction, {});
   const formKey = useFormKey(state);
   const [kind, setKind] = useState<string>(state.values?.kind ?? "commercant");
@@ -61,7 +72,13 @@ export function SignupForm({ phoneExample, neighborhoods, vehicles }: { phoneExa
         <Field label="Téléphone" name="phone" error={e("phone")} hint="Sert à vous connecter." required>
           <input {...p("phone")} type="tel" inputMode="tel" placeholder={phoneExample} autoComplete="tel" />
         </Field>
-        <Field label="E-mail" name="email" error={e("email")}>
+        <Field
+          label="E-mail"
+          name="email"
+          error={e("email")}
+          required={emailRequired}
+          hint={emailRequired ? "Un code de vérification vous sera envoyé." : undefined}
+        >
           <input {...p("email")} type="email" inputMode="email" autoComplete="email" />
         </Field>
         {kind === "livreur" ? (
@@ -116,7 +133,7 @@ export function SignupForm({ phoneExample, neighborhoods, vehicles }: { phoneExa
       {e("accept") ? <p className="-mt-2 text-sm font-medium text-red-700">{e("accept")}</p> : null}
 
       <SubmitButton className="btn-primary btn-lg w-full" pendingLabel="Création du compte…">
-        {kind === "livreur" ? "Envoyer ma demande" : "Créer mon compte"}
+        {emailRequired ? "Recevoir mon code par e-mail" : kind === "livreur" ? "Envoyer ma demande" : "Créer mon compte"}
       </SubmitButton>
       <p className="text-center text-sm text-ink-muted">
         Déjà un compte ?{" "}

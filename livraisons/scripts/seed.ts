@@ -125,7 +125,7 @@ if (existing && !reset) {
   process.exit(0);
 }
 if (reset) {
-  for (const t of ["notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
+  for (const t of ["email_verifications", "notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
   console.log("Base vidée.");
 }
 

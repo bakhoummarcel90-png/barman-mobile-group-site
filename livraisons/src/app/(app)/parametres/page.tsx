@@ -7,6 +7,7 @@ import { ActiveBadge, Card, DefinitionList, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf, getCompany } from "@/lib/company";
 import { formatDateTime, formatPhone } from "@/lib/format";
+import { mailConfigured } from "@/lib/mail";
 import { listAdmins } from "@/lib/people";
 
 export const metadata: Metadata = { title: "Paramètres" };
@@ -95,6 +96,16 @@ export default async function SettingsPage() {
           </p>
           <div className="mt-3">
             <SignupToggle open={!!company.signup_open} />
+          </div>
+          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
+            <p className="font-semibold text-ink">
+              Vérification par e-mail : {mailConfigured() ? <span className="text-emerald-700">activée</span> : <span className="text-amber-700">non configurée</span>}
+            </p>
+            <p className="mt-1 text-ink-muted">
+              {mailConfigured()
+                ? "Chaque inscription reçoit un code à 6 chiffres par e-mail ; vous n'êtes prévenu qu'une fois le code saisi."
+                : "Les inscriptions se font sans code. Pour l'activer : créez un compte gratuit Brevo, puis ajoutez BREVO_API_KEY et MAIL_FROM_EMAIL dans les variables de l'hébergeur (voir README)."}
+            </p>
           </div>
         </Card>
 

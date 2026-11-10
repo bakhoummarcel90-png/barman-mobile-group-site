@@ -8,6 +8,9 @@ import type { Role } from "./constants";
 import type { Actor, Merchant, UserRow } from "./types";
 import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } from "./validation";
 
+/** Exclut les inscriptions dont l'e-mail n'est pas encore confirmé (comptes pas encore créés pour de bon). */
+const UNVERIFIED_FILTER = "AND NOT EXISTS (SELECT 1 FROM users vu WHERE vu.merchant_id = m.id AND vu.email_verified = 0)";
+
 export const VEHICLES = ["Moto", "Vélo", "Voiture", "Tricycle", "À pied"];
 
 function requireAdmin(actor: Actor): void {
@@ -292,14 +295,14 @@ export function listMerchants(actor: Actor): MerchantListItem[] {
        (SELECT COUNT(*) FROM deliveries d WHERE d.merchant_id = m.id AND d.status = 'livree') AS delivered_total,
        (SELECT COALESCE(SUM(d.collected_amount - d.delivery_fee),0) FROM deliveries d WHERE d.merchant_id = m.id
           AND d.status = 'livree' AND d.payment_status = 'confirme' AND d.merchant_settlement_id IS NULL) AS to_pay
-     FROM merchants m WHERE m.company_id = ? ORDER BY m.active DESC, m.name`,
+     FROM merchants m WHERE m.company_id = ? ${UNVERIFIED_FILTER} ORDER BY m.active DESC, m.name`,
     actor.companyId,
   );
 }
 
 export function merchantOptions(actor: Actor): { id: number; name: string; active: number }[] {
   if (actor.role !== "admin") return [];
-  return all("SELECT id, name, active FROM merchants WHERE company_id = ? ORDER BY active DESC, name", actor.companyId);
+  return all(`SELECT m.id, m.name, m.active FROM merchants m WHERE m.company_id = ? ${UNVERIFIED_FILTER} ORDER BY m.active DESC, m.name`, actor.companyId);
 }
 
 export function setMerchantActive(actor: Actor, id: number, active: boolean): void {

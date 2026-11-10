@@ -15,8 +15,9 @@ import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } fro
  *    commandes et colis, que l'administrateur voit) ;
  *  - livreur : compte EN ATTENTE ; il ne peut se connecter qu'après validation
  *    par l'administrateur (il manipule l'argent des clients).
- * Aucun SMS de vérification n'est envoyé (pas de fournisseur configuré) :
- * l'administrateur peut désactiver un compte suspect à tout moment.
+ * Si l'envoi d'e-mails est configuré (lib/mail.ts), l'e-mail est obligatoire
+ * et un code de vérification doit être saisi avant toute activation ou
+ * notification de l'administrateur. Aucun SMS n'est envoyé.
  */
 
 export interface SignupCompany {
@@ -31,13 +32,14 @@ export function signupCompany(): SignupCompany | null {
   return get<SignupCompany>("SELECT id, name, country_code, signup_open FROM companies ORDER BY id LIMIT 1") ?? null;
 }
 
-function commonFields(fd: FormData, country: CountryConfig, errors: FieldErrors) {
+function commonFields(fd: FormData, country: CountryConfig, errors: FieldErrors, emailRequired: boolean) {
   const rawPhone = str(fd, "phone");
   const phone = normalizePhone(rawPhone, country);
   if (!rawPhone) errors.phone = "Le téléphone est obligatoire : il sert à vous connecter.";
   else if (!phone) errors.phone = `Numéro invalide, par ex. ${country.phoneExample}.`;
   const email = optional(fd, "email")?.toLowerCase() ?? null;
   if (email && !isEmail(email)) errors.email = "Adresse e-mail invalide.";
+  else if (!email && emailRequired) errors.email = "L'e-mail est obligatoire : un code de vérification vous y sera envoyé.";
   const password = typeof fd.get("password") === "string" ? (fd.get("password") as string) : "";
   const confirm = typeof fd.get("confirm_password") === "string" ? (fd.get("confirm_password") as string) : "";
   if (password.length < PASSWORD_MIN) errors.password = `Au moins ${PASSWORD_MIN} caractères.`;
@@ -59,7 +61,7 @@ export interface MerchantSignup {
   password: string;
 }
 
-export function parseMerchantSignup(fd: FormData, country: CountryConfig): { data: MerchantSignup | null; errors: FieldErrors } {
+export function parseMerchantSignup(fd: FormData, country: CountryConfig, emailRequired = false): { data: MerchantSignup | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
   const kind = str(fd, "kind") === "particulier" ? "particulier" : "commercant";
   const contactName = str(fd, "contact_name");
@@ -67,7 +69,7 @@ export function parseMerchantSignup(fd: FormData, country: CountryConfig): { dat
   let shopName = str(fd, "shop_name");
   if (kind === "commercant" && shopName.length < 2) errors.shop_name = "Indiquez le nom de votre boutique.";
   if (kind === "particulier") shopName = contactName;
-  const { phone, email, password } = commonFields(fd, country, errors);
+  const { phone, email, password } = commonFields(fd, country, errors, emailRequired);
   if (Object.keys(errors).length) return { data: null, errors };
   return {
     data: {
@@ -84,13 +86,38 @@ export function parseMerchantSignup(fd: FormData, country: CountryConfig): { dat
   };
 }
 
-/** Crée la fiche commerçant et son compte ; renvoie l'identifiant du compte (connexion immédiate). */
-export function registerMerchant(companyId: number, input: MerchantSignup): number {
+/**
+ * Inscription restée sans code confirmé : on la libère (l'identifiant redevient
+ * disponible) pour que la personne puisse recommencer.
+ */
+function purgeUnverified(email: string | null, phone: string | null): void {
+  const stale = all<{ id: number; merchant_id: number | null }>(
+    "SELECT id, merchant_id FROM users WHERE email_verified = 0 AND ((? IS NOT NULL AND email = ?) OR (? IS NOT NULL AND phone = ?))",
+    email,
+    email,
+    phone,
+    phone,
+  );
+  for (const u of stale) {
+    run("DELETE FROM email_verifications WHERE user_id = ?", u.id);
+    run("DELETE FROM sessions WHERE user_id = ?", u.id);
+    run("DELETE FROM users WHERE id = ?", u.id);
+    if (u.merchant_id) run("DELETE FROM merchants WHERE id = ? AND NOT EXISTS (SELECT 1 FROM users WHERE merchant_id = ?)", u.merchant_id, u.merchant_id);
+  }
+}
+
+/**
+ * Crée la fiche commerçant et son compte ; renvoie l'identifiant du compte.
+ * verify = true : compte inactif jusqu'à la saisie du code reçu par e-mail
+ * (puis completeSignup) ; sinon actif tout de suite.
+ */
+export function registerMerchant(companyId: number, input: MerchantSignup, verify = false): number {
   return transaction(() => {
+    purgeUnverified(input.email, input.phone);
     assertLoginAvailable(input.email, input.phone);
     const merchantId = run(
-      `INSERT INTO merchants (company_id, name, contact_name, phone, email, address, neighborhood, notes, review_pending)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO merchants (company_id, name, contact_name, phone, email, address, neighborhood, notes, review_pending, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       companyId,
       input.shopName,
       input.contactName,
@@ -99,28 +126,20 @@ export function registerMerchant(companyId: number, input: MerchantSignup): numb
       input.address,
       input.neighborhood,
       input.kind === "particulier" ? "Particulier — inscrit lui-même" : "Inscrit lui-même",
+      verify ? 0 : 1,
+      verify ? 0 : 1,
     ).id;
     const userId = run(
-      "INSERT INTO users (company_id, role, name, email, phone, password_hash, merchant_id) VALUES (?, 'merchant', ?, ?, ?, ?, ?)",
+      "INSERT INTO users (company_id, role, name, email, phone, password_hash, merchant_id, email_verified) VALUES (?, 'merchant', ?, ?, ?, ?, ?, ?)",
       companyId,
       input.contactName,
       input.email,
       input.phone,
       hashPassword(input.password),
       merchantId,
+      verify ? 0 : 1,
     ).id;
-    logEvent({
-      companyId,
-      userId,
-      merchantId,
-      kind: "account",
-      message: `${input.kind === "particulier" ? "Particulier" : "Commerçant"} ${input.shopName} inscrit via la page d'inscription`,
-    });
-    notifyAdmins(companyId, {
-      title: input.kind === "particulier" ? "Nouveau particulier inscrit" : "Nouveau commerçant inscrit",
-      body: `${input.shopName} (${input.contactName}) — compte actif, à vérifier.`,
-      url: "/commercants#a-verifier",
-    });
+    if (!verify) completeSignup(userId);
     return userId;
   });
 }
@@ -134,24 +153,29 @@ export interface CourierSignup {
   password: string;
 }
 
-export function parseCourierSignup(fd: FormData, country: CountryConfig): { data: CourierSignup | null; errors: FieldErrors } {
+export function parseCourierSignup(fd: FormData, country: CountryConfig, emailRequired = false): { data: CourierSignup | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
   const name = str(fd, "contact_name");
   if (name.length < 2) errors.contact_name = "Indiquez votre nom complet.";
   const vehicle = optional(fd, "vehicle");
   if (vehicle && !VEHICLES.includes(vehicle)) errors.vehicle = "Choisissez un moyen de transport de la liste.";
-  const { phone, email, password } = commonFields(fd, country, errors);
+  const { phone, email, password } = commonFields(fd, country, errors, emailRequired);
   if (Object.keys(errors).length) return { data: null, errors };
   return { data: { name, phone: phone!, email, vehicle, zone: optional(fd, "zone"), password }, errors };
 }
 
-/** Crée un livreur EN ATTENTE (inactif) jusqu'à la validation par l'administrateur. */
-export function registerCourier(companyId: number, input: CourierSignup): number {
+/**
+ * Crée un livreur. verify = true : e-mail à confirmer d'abord ; ensuite (ou
+ * tout de suite sans vérification) il passe EN ATTENTE de validation par
+ * l'administrateur.
+ */
+export function registerCourier(companyId: number, input: CourierSignup, verify = false): number {
   return transaction(() => {
+    purgeUnverified(input.email, input.phone);
     assertLoginAvailable(input.email, input.phone);
     const id = run(
-      `INSERT INTO users (company_id, role, name, email, phone, password_hash, vehicle, zone, active, pending, notes)
-       VALUES (?, 'courier', ?, ?, ?, ?, ?, ?, 0, 1, ?)`,
+      `INSERT INTO users (company_id, role, name, email, phone, password_hash, vehicle, zone, active, pending, notes, email_verified)
+       VALUES (?, 'courier', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
       companyId,
       input.name,
       input.email,
@@ -159,16 +183,53 @@ export function registerCourier(companyId: number, input: CourierSignup): number
       hashPassword(input.password),
       input.vehicle,
       input.zone,
+      verify ? 0 : 1,
       "Inscrit lui-même",
+      verify ? 0 : 1,
     ).id;
-    logEvent({ companyId, userId: id, subjectUserId: id, kind: "account", message: `Livreur ${input.name} inscrit, en attente de validation` });
-    notifyAdmins(companyId, {
-      title: "Nouveau livreur à valider",
-      body: `${input.name}${input.vehicle ? ` (${input.vehicle})` : ""} attend votre validation pour se connecter.`,
-      url: "/livreurs#a-valider",
-    });
+    if (!verify) completeSignup(id);
     return id;
   });
+}
+
+/**
+ * Finalise une inscription (e-mail confirmé, ou vérification non configurée) :
+ * commerçant actif et « à vérifier », livreur en attente de validation ;
+ * journal et notification des administrateurs. Renvoie le rôle.
+ */
+export function completeSignup(userId: number): "merchant" | "courier" {
+  const u = get<{ id: number; company_id: number; role: string; name: string; merchant_id: number | null; vehicle: string | null }>(
+    "SELECT id, company_id, role, name, merchant_id, vehicle FROM users WHERE id = ?",
+    userId,
+  );
+  if (!u) throw new UserError("Inscription introuvable.");
+  if (u.role === "courier") {
+    run("UPDATE users SET pending = 1, email_verified = 1 WHERE id = ?", u.id);
+    logEvent({ companyId: u.company_id, userId: u.id, subjectUserId: u.id, kind: "account", message: `Livreur ${u.name} inscrit, en attente de validation` });
+    notifyAdmins(u.company_id, {
+      title: "Nouveau livreur à valider",
+      body: `${u.name}${u.vehicle ? ` (${u.vehicle})` : ""} attend votre validation pour se connecter.`,
+      url: "/livreurs#a-valider",
+    });
+    return "courier";
+  }
+  const m = get<{ name: string; notes: string | null }>("SELECT name, notes FROM merchants WHERE id = ?", u.merchant_id);
+  run("UPDATE merchants SET active = 1, review_pending = 1 WHERE id = ?", u.merchant_id);
+  run("UPDATE users SET email_verified = 1 WHERE id = ?", u.id);
+  const particulier = !!m?.notes?.startsWith("Particulier");
+  logEvent({
+    companyId: u.company_id,
+    userId: u.id,
+    merchantId: u.merchant_id,
+    kind: "account",
+    message: `${particulier ? "Particulier" : "Commerçant"} ${m?.name} inscrit via la page d'inscription`,
+  });
+  notifyAdmins(u.company_id, {
+    title: particulier ? "Nouveau particulier inscrit" : "Nouveau commerçant inscrit",
+    body: `${m?.name} (${u.name}) — compte actif, à vérifier.`,
+    url: "/commercants#a-verifier",
+  });
+  return "merchant";
 }
 
 /* ---------- Administration des inscriptions ---------- */
