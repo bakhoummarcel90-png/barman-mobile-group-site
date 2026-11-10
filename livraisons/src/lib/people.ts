@@ -18,7 +18,7 @@ function requireAdmin(actor: Actor): void {
 /* Identifiants de connexion                                            */
 /* ------------------------------------------------------------------ */
 
-function assertLoginAvailable(email: string | null, phone: string | null, exceptUserId = 0): void {
+export function assertLoginAvailable(email: string | null, phone: string | null, exceptUserId = 0): void {
   if (email && get("SELECT 1 FROM users WHERE email = ? AND id <> ?", email, exceptUserId))
     throw new UserError(`L'adresse e-mail ${email} est déjà utilisée par un autre compte.`);
   if (phone && get("SELECT 1 FROM users WHERE phone = ? AND id <> ?", phone, exceptUserId))
@@ -341,7 +341,8 @@ export function setUserActive(actor: Actor, userId: number, active: boolean): vo
       const admins = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'admin' AND active = 1", actor.companyId)!.n;
       if (admins <= 1) throw new UserError("Il doit rester au moins un administrateur actif.");
     }
-    run("UPDATE users SET active = ?, updated_at = ? WHERE id = ?", active ? 1 : 0, new Date().toISOString(), userId);
+    // Réactiver un livreur inscrit lui-même vaut validation de son inscription.
+    run("UPDATE users SET active = ?, pending = CASE WHEN ? = 1 THEN 0 ELSE pending END, updated_at = ? WHERE id = ?", active ? 1 : 0, active ? 1 : 0, new Date().toISOString(), userId);
     if (!active) revokeSessionsFor(userId);
     logEvent({
       companyId: actor.companyId,

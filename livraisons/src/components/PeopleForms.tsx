@@ -5,6 +5,8 @@ import { useActionState } from "react";
 import { KeyRound, Power } from "lucide-react";
 import {
   changePasswordAction,
+  courierApplicationAction,
+  signupSettingAction,
   deleteAccountAction,
   createAdminAction,
   resetPasswordAction,
@@ -307,6 +309,52 @@ export function DeleteAccountForm() {
           />
         </>
       )}
+    </ActionForm>
+  );
+}
+
+/** Accepter ou refuser une inscription de livreur. */
+export function CourierApplication({ userId, name }: { userId: number; name: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <ActionForm action={courierApplicationAction} hidden={{ user_id: userId, decision: "accepter" }}>
+        <ConfirmSubmit
+          label="Accepter"
+          className="btn-primary btn-sm"
+          title={`Accepter ${name} comme livreur ?`}
+          message="Il pourra se connecter et vous pourrez lui attribuer des courses."
+          confirmLabel="Accepter"
+        />
+      </ActionForm>
+      <ActionForm action={courierApplicationAction} hidden={{ user_id: userId, decision: "refuser" }}>
+        <ConfirmSubmit
+          label="Refuser"
+          className="btn-secondary btn-sm text-red-700"
+          tone="danger"
+          title={`Refuser l'inscription de ${name} ?`}
+          message="Le compte est fermé et ses coordonnées sont effacées."
+          confirmLabel="Refuser"
+        />
+      </ActionForm>
+    </div>
+  );
+}
+
+/** Ouvrir / fermer les inscriptions publiques. */
+export function SignupToggle({ open }: { open: boolean }) {
+  return (
+    <ActionForm action={signupSettingAction} hidden={{ open: open ? "0" : "1" }}>
+      <ConfirmSubmit
+        label={open ? "Fermer les inscriptions" : "Ouvrir les inscriptions"}
+        className={open ? "btn-secondary btn-sm text-red-700" : "btn-primary btn-sm"}
+        tone={open ? "danger" : "primary"}
+        title={open ? "Fermer les inscriptions ?" : "Ouvrir les inscriptions ?"}
+        message={
+          open
+            ? "Plus personne ne pourra créer de compte depuis la page d'inscription. Les comptes existants ne changent pas."
+            : "Commerçants et particuliers pourront créer leur compte ; les livreurs devront être acceptés par vous."
+        }
+      />
     </ActionForm>
   );
 }

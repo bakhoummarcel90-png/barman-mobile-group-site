@@ -331,3 +331,51 @@ describe("liens de suivi au nom de la boutique", () => {
     assert.equal(S.trackingPath("SLAAAA2222", null), "/suivi/SLAAAA2222");
   });
 });
+
+describe("inscription publique", async () => {
+  const SU = await import("../src/lib/signup");
+  const { findLoginUser } = await import("../src/lib/people");
+  const { getCountry } = await import("../src/lib/regions");
+  const fd = (o: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(o)) f.set(k, v);
+    return f;
+  };
+  const base = { phone: "70 000 55 01", password: "motdepasse", confirm_password: "motdepasse", accept: "1" };
+
+  test("validation du formulaire", () => {
+    const r = SU.parseMerchantSignup(fd({ kind: "commercant", contact_name: "A", phone: "12", password: "x", confirm_password: "y" }), getCountry("SN"));
+    assert.equal(r.data, null);
+    assert.ok(r.errors.shop_name && r.errors.contact_name && r.errors.phone && r.errors.password && r.errors.accept);
+  });
+
+  test("commerçant : compte actif tout de suite, rattaché à l'entreprise", () => {
+    const r = SU.parseMerchantSignup(fd({ ...base, kind: "commercant", shop_name: "Boutique Awa", contact_name: "Awa Fall" }), getCountry("SN"));
+    const userId = SU.registerMerchant(admin.companyId, r.data!);
+    const u = findLoginUser("70 000 55 01")!;
+    assert.equal(u.id, userId);
+    assert.equal(u.active, 1);
+    assert.equal(u.role, "merchant");
+    assert.throws(() => SU.registerMerchant(admin.companyId, r.data!), /déjà utilisé/);
+  });
+
+  test("livreur : en attente, puis accepté ou refusé par l'administrateur", () => {
+    const r = SU.parseCourierSignup(fd({ ...base, phone: "70 000 55 02", kind: "livreur", contact_name: "Ali Ba", vehicle: "Moto" }), getCountry("SN"));
+    const id = SU.registerCourier(admin.companyId, r.data!);
+    const u = findLoginUser("70 000 55 02")!;
+    assert.equal(u.active, 0);
+    assert.equal(u.pending, 1);
+    assert.equal(SU.pendingCouriers(admin).some((c) => c.id === id), true);
+    assert.equal(SU.pendingCouriers(adminB).length, 0, "une autre entreprise ne voit pas la demande");
+    assert.throws(() => SU.approveCourier(merchant, id));
+    assert.throws(() => SU.approveCourier(adminB, id), /introuvable/);
+    SU.approveCourier(admin, id);
+    assert.equal(findLoginUser("70 000 55 02")!.active, 1);
+    assert.throws(() => SU.rejectCourier(admin, id), /déjà traitée/);
+
+    const r2 = SU.parseCourierSignup(fd({ ...base, phone: "70 000 55 03", kind: "livreur", contact_name: "Faux Compte" }), getCountry("SN"));
+    const id2 = SU.registerCourier(admin.companyId, r2.data!);
+    SU.rejectCourier(admin, id2);
+    assert.equal(findLoginUser("70 000 55 03"), undefined, "coordonnées effacées");
+  });
+});

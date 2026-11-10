@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { get } from "@/lib/db";
+import { signupCompany } from "@/lib/signup";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Connexion" };
@@ -14,6 +15,7 @@ export default async function LoginPage() {
   // Aucun compte : première installation.
   if (!get("SELECT 1 FROM users LIMIT 1")) redirect("/installation");
   // Le rappel des comptes de démonstration n'apparaît que si la démo est installée.
+  const signupOpen = !!signupCompany()?.signup_open;
   const demo = process.env.HIDE_DEMO_HINT !== "1" && !!get("SELECT 1 FROM users WHERE email = 'admin@demo.sn'");
 
   return (
@@ -29,6 +31,11 @@ export default async function LoginPage() {
         <div className="card p-5 sm:p-6">
           <LoginForm />
         </div>
+        {signupOpen ? (
+          <Link href="/inscription" className="btn-secondary mt-3 w-full">
+            Créer un compte (commerçant, particulier, livreur)
+          </Link>
+        ) : null}
         <p className="mt-3 text-center text-sm">
           Vous attendez un colis ?{" "}
           <Link href="/suivi" className="link">

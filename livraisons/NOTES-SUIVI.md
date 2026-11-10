@@ -7,7 +7,7 @@ _Dernière mise à jour : 10 novembre 2026 (soir)_
 - Application SenLivraison complète dans `livraisons/` : commandes, livreurs, commerçants, encaissements,
   tableau de bord, espace livreur mobile.
 - En ligne sur Railway (essai gratuit : 30 jours ou 5 $) :
-  https://barman-mobile-group-site-production.up.railway.app
+  https://senservicelivraison.up.railway.app (ancienne adresse : barman-mobile-group-site-production.up.railway.app)
   - Démo chargée (`SEED_DEMO=1`). Comptes : `admin@demo.sn`, `boutique@demo.sn`, livreur `70 000 00 11`,
     mot de passe = la valeur de `DEMO_PASSWORD` dans Railway.
   - Railway : dossier racine `livraisons`, volume monté sur `/data`, branche `main`.
@@ -18,6 +18,11 @@ _Dernière mise à jour : 10 novembre 2026 (soir)_
 - Pull request n°3 (à fusionner) : application installable (PWA), pages légales exigées par les stores
   (`/confidentialite`, `/suppression-compte`), suppression de compte dans « Mon compte », captures et
   guide de publication : `store/PUBLICATION.md`.
+
+- Pull requests n°3 à n°5 fusionnées : application installable et pages des stores, saisie d'un nouveau
+  commerçant dans la commande, liens de suivi au nom de la boutique.
+- Décision : une seule entreprise (la vôtre) ; inscription publique avec commerçants/particuliers actifs tout
+  de suite et livreurs validés par l'administrateur (pull request n°6).
 
 ## Objectif décidé : publier sur Google Play et l'App Store
 

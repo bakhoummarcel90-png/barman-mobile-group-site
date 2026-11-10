@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import {
   clearLoginFailures,
@@ -19,6 +20,7 @@ import * as people from "@/lib/people";
 import * as shipments from "@/lib/shipments";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
 import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
+import * as signup from "@/lib/signup";
 import { savePhoto } from "@/lib/storage";
 import { formValues, invalid, optional, str, UserError, type FormState } from "@/lib/validation";
 
@@ -62,6 +64,12 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
     recordLoginFailure(key);
     return { ok: false, message: "Identifiant ou mot de passe incorrect.", values: { identifier } };
   }
+  if (user.pending)
+    return {
+      ok: false,
+      message: "Votre inscription de livreur est en attente de validation par l'entreprise de livraison. Vous pourrez vous connecter dès qu'elle sera acceptée.",
+      values: { identifier },
+    };
   if (!user.active || (user.role === "merchant" && !user.merchant_active))
     return { ok: false, message: "Ce compte est désactivé. Contactez l'administrateur de votre entreprise de livraison.", values: { identifier } };
   clearLoginFailures(key);
@@ -420,4 +428,77 @@ export async function shipmentStatusAction(_: FormState, fd: FormData): Promise<
   }
   refresh();
   redirect(`/colis/${id}?ok=etape`);
+}
+
+/* ------------------------------------------------------------------ */
+/* Inscription publique                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Au plus 5 inscriptions par heure et par adresse IP (contre les créations en rafale). */
+const signupAttempts = new Map<string, number[]>();
+async function signupAllowed(): Promise<boolean> {
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? h.get("x-real-ip") ?? "local").split(",")[0].trim();
+  const now = Date.now();
+  const recent = (signupAttempts.get(ip) ?? []).filter((t) => now - t < 3600_000);
+  if (recent.length >= 5) return false;
+  recent.push(now);
+  signupAttempts.set(ip, recent);
+  return true;
+}
+
+export async function signupAction(_: FormState, fd: FormData): Promise<FormState> {
+  const company = signup.signupCompany();
+  if (!company) redirect("/installation");
+  if (!company.signup_open) return { ok: false, message: "Les inscriptions sont fermées pour le moment. Contactez l'entreprise de livraison." };
+  const country = signup.getCountry(company.country_code);
+  const kind = str(fd, "kind");
+  if (kind === "livreur") {
+    const parsed = signup.parseCourierSignup(fd, country);
+    if (!parsed.data) return invalid(parsed.errors, fd);
+    if (!(await signupAllowed())) return { ok: false, message: "Trop d'inscriptions depuis cette connexion. Réessayez dans une heure.", values: formValues(fd) };
+    try {
+      signup.registerCourier(company.id, parsed.data);
+    } catch (err) {
+      return failure(err, fd);
+    }
+    redirect("/inscription/merci");
+  }
+  const parsed = signup.parseMerchantSignup(fd, country);
+  if (!parsed.data) return invalid(parsed.errors, fd);
+  if (!(await signupAllowed())) return { ok: false, message: "Trop d'inscriptions depuis cette connexion. Réessayez dans une heure.", values: formValues(fd) };
+  let userId: number;
+  try {
+    userId = signup.registerMerchant(company.id, parsed.data);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  await createSession(userId);
+  redirect("/tableau-de-bord?bienvenue=1");
+}
+
+export async function courierApplicationAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const decision = str(fd, "decision");
+  try {
+    if (decision === "accepter") signup.approveCourier(actor, idFrom(fd, "user_id"));
+    else signup.rejectCourier(actor, idFrom(fd, "user_id"));
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  // La demande quitte la liste « à valider » : confirmation en bandeau sur la page.
+  redirect(`/livreurs?ok=${decision === "accepter" ? "accepte" : "refuse"}`);
+}
+
+export async function signupSettingAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const open = str(fd, "open") === "1";
+  try {
+    signup.setSignupOpen(actor, open);
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  return { ok: true, message: open ? "Inscriptions ouvertes." : "Inscriptions fermées : la page d'inscription n'accepte plus de nouveaux comptes." };
 }
