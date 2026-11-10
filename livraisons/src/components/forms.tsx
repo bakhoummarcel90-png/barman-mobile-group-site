@@ -8,6 +8,21 @@ import { Alert, cx } from "./ui";
 
 export type FormAction = (prev: FormState, fd: FormData) => Promise<FormState>;
 
+/**
+ * Clé qui change à chaque réponse du serveur. Placée sur le <form>, elle le
+ * recrée avec les valeurs renvoyées : sans cela, React remet les listes
+ * déroulantes à leur premier choix après une erreur de validation.
+ */
+export function useFormKey(state: FormState): number {
+  const [prev, setPrev] = useState(state);
+  const [key, setKey] = useState(0);
+  if (prev !== state) {
+    setPrev(state);
+    setKey(key + 1);
+  }
+  return key;
+}
+
 export function SubmitButton({
   children,
   className = "btn-primary",
@@ -62,12 +77,13 @@ export function ActionForm({
   resetOnSuccess?: boolean;
 }) {
   const [state, formAction] = useActionState(action, {});
+  const formKey = useFormKey(state);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state.ok && resetOnSuccess) ref.current?.reset();
   }, [state, resetOnSuccess]);
   return (
-    <form ref={ref} action={formAction} className={cx("space-y-3", className)} noValidate>
+    <form key={formKey} ref={ref} action={formAction} className={cx("space-y-3", className)} noValidate>
       {hidden ? Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : null}
       <FormMessage state={state} />
       {typeof children === "function" ? children(state) : children}

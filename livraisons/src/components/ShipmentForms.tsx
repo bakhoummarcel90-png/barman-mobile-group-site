@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { saveShipmentAction, shipmentStatusAction } from "@/app/actions";
 import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUSES, TRANSPORT_MODES, type ShipmentStatus } from "@/lib/constants";
-import { Field, FormMessage, inputProps, SubmitButton } from "./forms";
+import { Field, FormMessage, inputProps, SubmitButton, useFormKey } from "./forms";
 
 interface Option {
   id: number;
@@ -30,6 +30,7 @@ export function ShipmentForm({
   currencyLabel: string;
 }) {
   const [state, action] = useActionState(saveShipmentAction, {});
+  const formKey = useFormKey(state);
   const p = (n: string) => inputProps(n, state, defaults);
   const e = (n: string) => state.errors?.[n];
   const countrySelect = (name: string) => (
@@ -44,7 +45,7 @@ export function ShipmentForm({
   );
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form key={formKey} action={action} className="space-y-5" noValidate>
       {id ? <input type="hidden" name="id" value={id} /> : null}
       <FormMessage state={state} />
 
@@ -177,9 +178,10 @@ export function ShipmentForm({
 /** Nouvelle étape de suivi (administrateur). */
 export function ShipmentStatusForm({ id, current }: { id: number; current: ShipmentStatus }) {
   const [state, action] = useActionState(shipmentStatusAction, {});
+  const formKey = useFormKey(state);
   const next = SHIPMENT_STATUSES[Math.min(SHIPMENT_STATUSES.indexOf(current) + 1, SHIPMENT_STATUSES.indexOf("livre"))];
   return (
-    <form action={action} className="space-y-3" noValidate>
+    <form key={formKey} action={action} className="space-y-3" noValidate>
       <input type="hidden" name="id" value={id} />
       <FormMessage state={state} />
       <Field label="Nouvelle étape" name="status" error={state.errors?.status} required>

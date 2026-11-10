@@ -15,7 +15,7 @@ import {
 } from "@/app/actions";
 import type { PaymentMethodConfig } from "@/lib/regions";
 import type { FormState } from "@/lib/validation";
-import { ActionForm, ConfirmSubmit, Field, FormMessage, inputProps, SubmitButton } from "./forms";
+import { ActionForm, ConfirmSubmit, Field, FormMessage, inputProps, SubmitButton, useFormKey } from "./forms";
 import { Alert } from "./ui";
 
 /** Identifiants à transmettre, affichés une seule fois après création. */
@@ -55,11 +55,12 @@ export function CourierForm({
   phoneExample: string;
 }) {
   const [state, action] = useActionState(saveCourierAction, {});
+  const formKey = useFormKey(state);
   if (!id && state.ok && state.data) return <Credentials state={state} profileHref={`/livreurs/${state.data.id}`} />;
   const p = (n: string) => inputProps(n, state, defaults);
   const e = (n: string) => state.errors?.[n];
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <form key={formKey} action={action} className="space-y-4" noValidate>
       {id ? <input type="hidden" name="id" value={id} /> : null}
       <FormMessage state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -113,11 +114,12 @@ export function MerchantForm({
   phoneExample: string;
 }) {
   const [state, action] = useActionState(saveMerchantAction, {});
+  const formKey = useFormKey(state);
   if (!id && state.ok && state.data) return <Credentials state={state} profileHref={`/commercants/${state.data.id}`} />;
   const p = (n: string) => inputProps(n, state, defaults);
   const e = (n: string) => state.errors?.[n];
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <form key={formKey} action={action} className="space-y-4" noValidate>
       {id ? <input type="hidden" name="id" value={id} /> : null}
       <FormMessage state={state} />
       <div className="grid gap-4 sm:grid-cols-2">

@@ -113,6 +113,8 @@ export interface DeliveryInput {
   scheduledAt: string | null;
   /** Colis international lié (dernier kilomètre), administrateur uniquement. */
   shipmentId: number | null;
+  /** Nom d'un commerçant à créer à la volée (administrateur, choix « + Nouveau commerçant »). */
+  newMerchantName: string | null;
 }
 
 /** Valide le formulaire. Les messages d'erreur sont prêts à afficher. */
@@ -128,9 +130,17 @@ export function parseDeliveryForm(
     errors.reference = "Utilisez au plus 40 caractères (lettres, chiffres, tirets).";
 
   let merchantId = actor.merchantId ?? 0;
+  let newMerchantName: string | null = null;
   if (actor.role === "admin") {
-    merchantId = Number(str(fd, "merchant_id"));
-    if (!merchantId) errors.merchant_id = "Choisissez le commerçant.";
+    const m = str(fd, "merchant_id");
+    if (m === "new") {
+      newMerchantName = str(fd, "new_merchant_name");
+      if (newMerchantName.length < 2) errors.new_merchant_name = "Tapez le nom du commerçant (au moins 2 caractères).";
+      else if (newMerchantName.length > 80) errors.new_merchant_name = "80 caractères maximum.";
+    } else {
+      merchantId = Number(m);
+      if (!merchantId) errors.merchant_id = "Choisissez un commerçant, ou « + Nouveau commerçant » pour en saisir un.";
+    }
   }
 
   let courierId: number | null = null;
@@ -183,6 +193,7 @@ export function parseDeliveryForm(
   if (Object.keys(errors).length) return { data: null, errors };
   return {
     data: {
+      newMerchantName,
       shipmentId,
       reference,
       merchantId,
@@ -242,6 +253,26 @@ function assertCourier(actor: Actor, courierId: number): string {
   return c.name;
 }
 
+/**
+ * Commerçant saisi par son nom dans le formulaire de commande : réutilise une
+ * fiche existante du même nom, sinon en crée une (sans compte d'accès ; on peut
+ * compléter la fiche ensuite dans la page Commerçants).
+ */
+function merchantFromName(actor: Actor, name: string): number {
+  const existing = get<{ id: number; active: number }>(
+    "SELECT id, active FROM merchants WHERE company_id = ? AND lower(trim(name)) = lower(trim(?))",
+    actor.companyId,
+    name,
+  );
+  if (existing) {
+    if (!existing.active) throw new UserError(`Le commerçant « ${name} » existe mais est désactivé : réactivez-le dans la page Commerçants.`);
+    return existing.id;
+  }
+  const { id } = run("INSERT INTO merchants (company_id, name, notes) VALUES (?, ?, ?)", actor.companyId, name.trim(), "Créé depuis une commande");
+  logEvent({ companyId: actor.companyId, userId: actor.id, merchantId: id, kind: "account", message: `Commerçant ${name.trim()} créé depuis une commande` });
+  return id;
+}
+
 function generateReference(companyId: number, timeZone: string): string {
   const day = todayLocal(timeZone).replace(/-/g, "").slice(2); // AAMMJJ
   const prefix = `LIV-${day}-`;
@@ -261,8 +292,9 @@ function referenceTaken(companyId: number, reference: string, exceptId = 0): boo
 export function createDelivery(actor: Actor, input: DeliveryInput): number {
   if (actor.role === "courier") throw new UserError("Un livreur ne peut pas créer de commande.");
   const country = getCountry(actor.countryCode);
-  const merchantId = actor.role === "merchant" ? actor.merchantId! : input.merchantId;
   return transaction(() => {
+    const merchantId =
+      actor.role === "merchant" ? actor.merchantId! : input.newMerchantName ? merchantFromName(actor, input.newMerchantName) : input.merchantId;
     assertMerchant(actor, merchantId);
     const courierName = input.courierId ? assertCourier(actor, input.courierId) : null;
     const reference = input.reference ?? generateReference(actor.companyId, country.timezone);
@@ -350,7 +382,8 @@ export function updateDelivery(actor: Actor, id: number, input: DeliveryInput): 
           ? "La course a démarré : contactez l'entreprise de livraison pour modifier cette commande."
           : "Cette livraison est terminée et ne peut plus être modifiée.",
       );
-    const merchantId = actor.role === "admin" ? input.merchantId : d.merchant_id;
+    const merchantId =
+      actor.role !== "admin" ? d.merchant_id : input.newMerchantName ? merchantFromName(actor, input.newMerchantName) : input.merchantId;
     if (merchantId !== d.merchant_id) assertMerchant(actor, merchantId);
     const reference = input.reference ?? d.reference;
     if (referenceTaken(actor.companyId, reference, id))
