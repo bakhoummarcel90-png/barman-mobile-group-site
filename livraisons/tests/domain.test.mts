@@ -286,3 +286,26 @@ describe("colis internationaux", async () => {
     assert.equal(S.normalizeTrackingNumber(" sl7kq-2m9xa "), "SL7KQ2M9XA");
   });
 });
+
+describe("suppression de compte (exigence des stores)", () => {
+  test("anonymise le compte et conserve l'historique", async () => {
+    const { deleteOwnAccount, createCourier, findLoginUser } = await import("../src/lib/people");
+    const id = createCourier(admin, { name: "À supprimer", phone: "+221700000666", email: "sup@demo.sn", vehicle: null, zone: null, notes: null, password: "motdepasse" });
+    const me = actor(id, admin.companyId, "courier");
+    assert.throws(() => deleteOwnAccount(me, "mauvais"), /incorrect/);
+    const d = D.createDelivery(admin, input({ courierId: id }));
+    assert.throws(() => deleteOwnAccount(me, "motdepasse"), /en cours/);
+    D.changeStatus(me, d, { to: "en_cours" });
+    D.changeStatus(me, d, { to: "livree", collectedAmount: 10000, collectedMethod: "cash" });
+    deleteOwnAccount(me, "motdepasse");
+    assert.equal(findLoginUser("sup@demo.sn"), undefined);
+    assert.equal(findLoginUser("70 000 06 66"), undefined);
+    assert.equal(D.getDelivery(admin, d)!.courier_name, "Compte supprimé");
+  });
+  test("le dernier administrateur ne peut pas se supprimer", async () => {
+    const { deleteOwnAccount } = await import("../src/lib/people");
+    const c = run("INSERT INTO companies (name) VALUES ('Solo')").id;
+    const a = run("INSERT INTO users (company_id, role, name, password_hash) VALUES (?, 'admin', 'Seul', ?)", c, hashPassword("motdepasse")).id;
+    assert.throws(() => deleteOwnAccount(actor(a, c, "admin"), "motdepasse"), /seul administrateur/);
+  });
+});

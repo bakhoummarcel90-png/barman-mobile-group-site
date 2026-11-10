@@ -1,6 +1,6 @@
 # Où on en est (suivi du projet)
 
-_Dernière mise à jour : 10 novembre 2026_
+_Dernière mise à jour : 10 novembre 2026 (soir)_
 
 ## Fait
 
@@ -14,6 +14,17 @@ _Dernière mise à jour : 10 novembre 2026_
 - Pull request n°1 fusionnée : l'application.
 - Pull request n°2 fusionnée : colis internationaux (`/colis`, suivi public `/suivi`) et 11 pays
   d'Afrique de l'Ouest.
+
+- Pull request n°3 (à fusionner) : application installable (PWA), pages légales exigées par les stores
+  (`/confidentialite`, `/suppression-compte`), suppression de compte dans « Mon compte », captures et
+  guide de publication : `store/PUBLICATION.md`.
+
+## Objectif décidé : publier sur Google Play et l'App Store
+
+- Android d'abord (via PWABuilder → fichier `.aab`), puis iPhone (nécessite un Mac et un compte Apple).
+- À faire par le propriétaire : compte Google Play Console (frais uniques), compte Apple Developer
+  (abonnement annuel), adresse définitive (nom de domaine conseillé), coordonnées légales
+  (`LEGAL_EDITOR_NAME`, `LEGAL_EDITOR_ADDRESS`, `LEGAL_CONTACT_EMAIL`), quitter la démo.
 
 ## Prochaine étape (à reprendre)
 

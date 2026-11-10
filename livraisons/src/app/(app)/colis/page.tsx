@@ -86,13 +86,11 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
           <div className="grid gap-3 md:hidden">
             {rows.map((s) => (
               <Link key={s.id} href={`/colis/${s.id}`} className="card block p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-mono text-xs font-semibold text-ink-muted">{s.tracking_number}</p>
-                    <p className="truncate font-semibold text-ink">{s.recipient_name}</p>
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs font-semibold text-ink-muted">{s.tracking_number}</p>
                   <ShipmentBadge status={s.status} />
                 </div>
+                <p className="mt-1 truncate font-semibold text-ink">{s.recipient_name}</p>
                 <p className="mt-2 text-sm text-ink-soft">
                   {shippingCountryName(s.origin_country)} → {shippingCountryName(s.destination_country)} · {TRANSPORT_MODES[s.transport_mode]}
                 </p>

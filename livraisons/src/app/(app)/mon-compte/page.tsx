@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions";
-import { ChangePasswordForm } from "@/components/PeopleForms";
+import Link from "next/link";
+import { ChangePasswordForm, DeleteAccountForm } from "@/components/PeopleForms";
 import { Card, DefinitionList, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
@@ -36,6 +37,14 @@ export default async function AccountPage() {
         </Card>
         <Card title="Changer mon mot de passe">
           <ChangePasswordForm />
+        </Card>
+        <Card title="Supprimer mon compte" className="lg:col-span-2">
+          <DeleteAccountForm />
+          <p className="mt-3 text-xs text-ink-muted">
+            <Link href="/confidentialite" className="link">
+              Politique de confidentialité
+            </Link>
+          </p>
         </Card>
       </div>
     </>

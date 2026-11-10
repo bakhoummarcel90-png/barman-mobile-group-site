@@ -445,3 +445,34 @@ export function findLoginUser(identifier: string): (UserRow & { merchant_active:
 }
 
 export type { Role };
+
+/**
+ * Suppression de son propre compte (exigée par Google Play et l'App Store).
+ * Les données personnelles du compte sont effacées (nom, e-mail, téléphone,
+ * mot de passe) ; l'historique des livraisons est conservé, rattaché à
+ * « Compte supprimé », pour la comptabilité de l'entreprise.
+ */
+export function deleteOwnAccount(actor: Actor, password: string): void {
+  transaction(() => {
+    const u = companyUser(actor, actor.id);
+    if (!verifyPassword(password, u.password_hash)) throw new UserError("Mot de passe incorrect.");
+    if (u.role === "admin") {
+      const admins = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'admin' AND active = 1", actor.companyId)!.n;
+      if (admins <= 1)
+        throw new UserError("Vous êtes le seul administrateur : ajoutez d'abord un autre administrateur dans Paramètres, ou contactez l'éditeur pour fermer l'entreprise.");
+    }
+    if (u.role === "courier") {
+      const n = get<{ n: number }>("SELECT COUNT(*) AS n FROM deliveries WHERE courier_id = ? AND status IN ('attribuee','en_cours')", u.id)!.n;
+      if (n > 0) throw new UserError(`Vous avez encore ${n} livraison(s) en cours : terminez-les ou demandez à l'administrateur de les réattribuer.`);
+    }
+    run(
+      `UPDATE users SET name = 'Compte supprimé', email = NULL, phone = NULL, password_hash = ?, active = 0,
+         vehicle = NULL, zone = NULL, notes = NULL, updated_at = ? WHERE id = ?`,
+      hashPassword(generatePassword() + generatePassword()),
+      new Date().toISOString(),
+      u.id,
+    );
+    revokeSessionsFor(u.id);
+    logEvent({ companyId: actor.companyId, userId: null, subjectUserId: u.id, merchantId: u.merchant_id, kind: "account", message: "Compte supprimé à la demande de son titulaire" });
+  });
+}
