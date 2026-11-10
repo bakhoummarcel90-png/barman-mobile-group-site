@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { KeyRound, Power } from "lucide-react";
 import {
   changePasswordAction,
+  deleteAccountAction,
   createAdminAction,
   resetPasswordAction,
   saveCourierAction,
@@ -273,6 +274,35 @@ export function ChangePasswordForm() {
             <input id="confirm_password" name="confirm_password" type="password" className="input" autoComplete="new-password" />
           </Field>
           <SubmitButton>Changer le mot de passe</SubmitButton>
+        </>
+      )}
+    </ActionForm>
+  );
+}
+
+export function DeleteAccountForm() {
+  return (
+    <ActionForm action={deleteAccountAction}>
+      {(state) => (
+        <>
+          <p className="text-sm text-ink-soft">
+            Votre nom, votre e-mail, votre téléphone et votre mot de passe seront effacés et vous serez déconnecté. L'historique des livraisons
+            reste visible par l'entreprise, sous le nom « Compte supprimé ». Cette action est définitive.
+          </p>
+          <Field label="Mot de passe" name="delete_password" required>
+            <input id="delete_password" name="password" type="password" className="input" autoComplete="current-password" />
+          </Field>
+          <Field label="Tapez SUPPRIMER pour confirmer" name="confirm" error={state.errors?.confirm} required>
+            <input id="confirm" name="confirm" className="input" autoComplete="off" />
+          </Field>
+          <ConfirmSubmit
+            label="Supprimer mon compte"
+            className="btn-secondary text-red-700"
+            tone="danger"
+            title="Supprimer définitivement votre compte ?"
+            message="Vous ne pourrez plus vous connecter et vos informations personnelles seront effacées."
+            confirmLabel="Supprimer"
+          />
         </>
       )}
     </ActionForm>

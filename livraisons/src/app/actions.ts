@@ -340,6 +340,18 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
   return { ok: true, message: "Mot de passe modifié." };
 }
 
+export async function deleteAccountAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser();
+  if (str(fd, "confirm") !== "SUPPRIMER") return { ok: false, errors: { confirm: "Tapez SUPPRIMER en majuscules pour confirmer." }, message: "Confirmation manquante." };
+  try {
+    people.deleteOwnAccount(actor, String(fd.get("password") ?? ""));
+  } catch (err) {
+    return failure(err);
+  }
+  await destroySession();
+  redirect("/suppression-compte?ok=1");
+}
+
 export async function createAdminAction(_: FormState, fd: FormData): Promise<FormState> {
   const actor = await requireUser(["admin"]);
   const parsed = people.parseAdminForm(fd, actor);

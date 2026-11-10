@@ -35,6 +35,15 @@ export default async function LoginPage() {
             Suivre mon colis
           </Link>
         </p>
+        <p className="mt-6 text-center text-xs text-ink-muted">
+          <Link href="/confidentialite" className="hover:underline">
+            Confidentialité
+          </Link>
+          {" · "}
+          <Link href="/suppression-compte" className="hover:underline">
+            Supprimer son compte
+          </Link>
+        </p>
 
         {demo ? (
           <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
