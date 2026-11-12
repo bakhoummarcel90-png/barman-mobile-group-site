@@ -5,6 +5,7 @@ import { ActiveBadge, EmptyState, OkBanner, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
 import { formatDateTime, formatMoney, formatPhone } from "@/lib/format";
+import { courierRating } from "@/lib/deliveries";
 import { listCouriers } from "@/lib/people";
 import { pendingCouriers } from "@/lib/signup";
 import { CourierApplication } from "@/components/PeopleForms";
@@ -71,6 +72,10 @@ export default async function CouriersPage({ searchParams }: { searchParams: Pro
                 </div>
                 <ActiveBadge active={c.active} />
               </div>
+              {(() => {
+                const r = courierRating(user.companyId, c.id);
+                return r.count ? <p className="text-xs font-semibold text-amber-700">★ {r.avg}/5 · {r.count} avis</p> : null;
+              })()}
               <p className="mt-1 text-xs text-ink-muted">
                 {c.vehicle ?? "Transport non précisé"}
                 {c.zone ? ` · ${c.zone}` : ""}

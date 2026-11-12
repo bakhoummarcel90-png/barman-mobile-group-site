@@ -21,6 +21,9 @@ export interface Company {
   timezone: string;
   phone: string | null;
   signup_open: number;
+  /** « manuel » : l'administrateur attribue ; « bourse » : les livreurs acceptent eux-mêmes. */
+  dispatch_mode: string;
+  tariffs: string | null;
   created_at: string;
 }
 
@@ -94,6 +97,20 @@ export interface Delivery {
   merchant_settlement_id: number | null;
   /** Colis international dont cette livraison est le « dernier kilomètre ». */
   shipment_id: number | null;
+  vehicle_type: string | null;
+  /** Options choisies (JSON : ["aide","fragile"]). */
+  options: string | null;
+  distance_km: number | null;
+  tracking_token: string | null;
+  preferred_courier_id: number | null;
+  offered_until: string | null;
+  courier_lat: number | null;
+  courier_lng: number | null;
+  courier_pos_at: string | null;
+  rating: number | null;
+  rating_comment: string | null;
+  rated_at: string | null;
+  signature: string | null;
   created_by: number;
   created_at: string;
   updated_at: string;

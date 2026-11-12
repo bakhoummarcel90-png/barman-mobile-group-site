@@ -295,6 +295,28 @@ function migrate(db: DatabaseSync): void {
   if (!columns("users").has("pending")) {
     db.exec("ALTER TABLE users ADD COLUMN pending INTEGER NOT NULL DEFAULT 0");
   }
+  // Fonctions « à la demande » : véhicule, prix, bourse aux courses, suivi GPS, notes, signature.
+  const add: [string, string, string][] = [
+    ["companies", "dispatch_mode", "TEXT NOT NULL DEFAULT 'manuel'"],
+    ["companies", "tariffs", "TEXT"],
+    ["deliveries", "vehicle_type", "TEXT"],
+    ["deliveries", "options", "TEXT"],
+    ["deliveries", "distance_km", "REAL"],
+    ["deliveries", "tracking_token", "TEXT"],
+    ["deliveries", "preferred_courier_id", "INTEGER REFERENCES users(id)"],
+    ["deliveries", "offered_until", "TEXT"],
+    ["deliveries", "courier_lat", "REAL"],
+    ["deliveries", "courier_lng", "REAL"],
+    ["deliveries", "courier_pos_at", "TEXT"],
+    ["deliveries", "rating", "INTEGER"],
+    ["deliveries", "rating_comment", "TEXT"],
+    ["deliveries", "rated_at", "TEXT"],
+    ["deliveries", "signature", "TEXT"],
+  ];
+  for (const [table, column, ddl] of add) {
+    if (!columns(table).has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_deliveries_tracking ON deliveries(tracking_token) WHERE tracking_token IS NOT NULL");
   if (!columns("users").has("email_verified")) {
     db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1");
   }
