@@ -42,6 +42,8 @@ before(() => {
 after(() => closeDb());
 
 function input(over: Partial<import("../src/lib/deliveries").DeliveryInput> = {}) {
+  // Les anciens tests fixent « deliveryFee » : c'est désormais un prix saisi par l'administrateur.
+  if (over.deliveryFee !== undefined && over.manualFee === undefined) over = { ...over, manualFee: over.deliveryFee };
   return {
     reference: null,
     merchantId,
@@ -58,6 +60,10 @@ function input(over: Partial<import("../src/lib/deliveries").DeliveryInput> = {}
     scheduledAt: null,
     shipmentId: null,
     newMerchantName: null,
+    vehicleType: "Moto" as const,
+    options: [] as ("aide" | "fragile")[],
+    preferredCourierId: null,
+    manualFee: 2000,
     ...over,
   };
 }
@@ -586,5 +592,82 @@ describe("vérification de l'e-mail à l'inscription", async () => {
     assert.equal(body.sender.email, "noreply@exemple.sn");
     assert.equal(body.to[0].email, "client@exemple.sn");
     assert.match(body.subject, /123456/);
+  });
+});
+
+describe("fonctions à la demande (prix, bourse, GPS, suivi, notes)", async () => {
+  const P = await import("../src/lib/pricing");
+
+  test("prix automatique : véhicule, distance entre quartiers, options, minimum", () => {
+    const t = P.DEFAULT_TARIFFS;
+    const near = P.quote(t, "Moto", "Plateau", "Médina", [])!;
+    const far = P.quote(t, "Moto", "Plateau", "Keur Massar", [])!;
+    assert.ok(near.price >= t.vehicles.Moto.min);
+    assert.ok(far.km > near.km && far.price > near.price);
+    assert.equal(P.quote(t, "Moto", "Plateau", "Keur Massar", ["aide"])!.price, far.price + t.options.aide);
+    assert.ok(P.quote(t, "Camion", "Plateau", "Médina", [])!.price >= t.vehicles.Camion.min);
+    assert.equal(P.quote(t, "Moto", "Plateau", "Quartier inconnu", []), null);
+    assert.equal(P.quote(t, "Moto", "SACRÉ-CŒUR", "point e", [])?.km !== undefined, true, "noms tolérants (accents, majuscules)");
+    assert.equal(P.parseTariffs('{"vehicles":{"Moto":{"base":500,"perKm":100,"min":1000}}}').vehicles.Moto.base, 500);
+  });
+
+  test("compatibilité véhicule", () => {
+    assert.equal(P.courierCanTake("Voiture", "Moto"), true);
+    assert.equal(P.courierCanTake("Moto", "Camionnette"), false);
+    assert.equal(P.courierCanTake("Vélo", "Moto"), true);
+    assert.equal(P.courierCanTake("Vélo", "Voiture"), false);
+    assert.equal(P.courierCanTake(null, "Camion"), true);
+  });
+
+  test("commerçant : prix toujours automatique ; admin : prix saisi ou automatique", () => {
+    run("UPDATE merchants SET neighborhood = 'Plateau' WHERE id = ?", merchantId);
+    const m = D.createDelivery(merchant, input({ neighborhood: "Keur Massar", manualFee: 99 }));
+    const dm = D.getDelivery(admin, m)!;
+    assert.equal(dm.delivery_fee, P.quote(P.DEFAULT_TARIFFS, "Moto", "Plateau", "Keur Massar", [])!.price);
+    assert.ok(dm.distance_km! > 10);
+    assert.ok(dm.tracking_token && dm.tracking_token.length >= 12);
+    const a = D.createDelivery(admin, input({ neighborhood: "Keur Massar", manualFee: 7000 }));
+    assert.equal(D.getDelivery(admin, a)!.delivery_fee, 7000);
+    const auto = D.createDelivery(admin, input({ neighborhood: "Keur Massar", manualFee: null, vehicleType: "Voiture" }));
+    assert.equal(D.getDelivery(admin, auto)!.delivery_fee, P.quote(P.DEFAULT_TARIFFS, "Voiture", "Plateau", "Keur Massar", [])!.price);
+  });
+
+  test("bourse : véhicule, favori prioritaire, premier arrivé", () => {
+    run("UPDATE users SET vehicle = 'Moto' WHERE id = ?", courier.id);
+    run("UPDATE users SET vehicle = 'Camionnette' WHERE id = ?", courier2.id);
+    const truck = D.createDelivery(admin, input({ vehicleType: "Camionnette" }));
+    assert.equal(D.availableForCourier(courier).some((d) => d.id === truck), false, "une moto ne voit pas une course camionnette");
+    assert.equal(D.availableForCourier(courier2).some((d) => d.id === truck), true);
+    const fav = D.createDelivery(admin, input({ preferredCourierId: courier.id }));
+    assert.equal(D.availableForCourier(courier2).some((d) => d.id === fav), false, "réservée au favori pendant 10 min");
+    assert.equal(D.availableForCourier(courier).some((d) => d.id === fav), true);
+    D.acceptDelivery(courier, fav);
+    assert.equal(D.getDelivery(admin, fav)!.courier_id, courier.id);
+    assert.throws(() => D.acceptDelivery(courier2, fav), /plus disponible/);
+    assert.throws(() => D.acceptDelivery(merchant, truck));
+    D.acceptDelivery(courier2, truck);
+    assert.equal(D.getDelivery(admin, truck)!.status, "attribuee");
+  });
+
+  test("GPS, lien de suivi public, note du client", () => {
+    const id = D.createDelivery(admin, input({ courierId: courier.id }));
+    D.reportPosition(courier, id, 14.7, -17.45);
+    assert.equal(D.getDelivery(admin, id)!.courier_lat, 14.7);
+    D.reportPosition(courier2, id, 1, 1);
+    assert.equal(D.getDelivery(admin, id)!.courier_lat, 14.7, "un autre livreur ne peut pas modifier la position");
+    const token = D.trackingTokenFor(admin, id);
+    const pub = D.publicDelivery(token)!;
+    assert.equal(pub.courier_lat, 14.7);
+    const json = JSON.stringify(pub);
+    assert.ok(!json.includes("+221700000099") && !json.includes("Villa 1") && !json.includes("10000"), "ni téléphone, ni adresse, ni montant");
+    assert.throws(() => D.rateDelivery(token, 5, null), /ne peut pas/, "pas de note avant la livraison");
+    D.changeStatus(courier, id, { to: "en_cours" });
+    D.changeStatus(courier, id, { to: "livree", collectedAmount: 10000, collectedMethod: "cash" });
+    assert.equal(D.publicDelivery(token)!.courier_lat, null, "position masquée après la livraison");
+    assert.throws(() => D.rateDelivery(token, 6, null), /1 à 5/);
+    D.rateDelivery(token, 4, "Rapide");
+    assert.throws(() => D.rateDelivery(token, 5, null), /ne peut pas/, "une seule note");
+    assert.equal(D.courierRating(admin.companyId, courier.id).count >= 1, true);
+    assert.equal(D.publicDelivery("inconnu-0123456789"), null);
   });
 });

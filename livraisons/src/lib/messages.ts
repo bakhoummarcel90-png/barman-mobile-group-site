@@ -33,8 +33,8 @@ function amountLine(d: DeliveryView, c: CountryConfig): string {
 }
 
 /** Message du livreur au client : « je suis en route ». */
-export function msgOnTheWay(d: DeliveryView, courierName: string, c = getCountry(null)): string {
-  return `Bonjour ${d.customer_name}, je suis ${courierName}, livreur pour ${d.merchant_name}. Je suis en route avec votre commande ${d.reference}. ${amountLine(d, c)} Merci de rester joignable.`;
+export function msgOnTheWay(d: DeliveryView, courierName: string, c = getCountry(null), link?: string): string {
+  return `Bonjour ${d.customer_name}, je suis ${courierName}, livreur pour ${d.merchant_name}. Je suis en route avec votre commande ${d.reference}. ${amountLine(d, c)} Merci de rester joignable.${link ? ` Suivez-moi sur la carte : ${link}` : ""}`;
 }
 
 /** Message au client quand il est injoignable / adresse à préciser. */
@@ -43,9 +43,9 @@ export function msgCantFind(d: DeliveryView, courierName: string): string {
 }
 
 /** Message de l'entreprise au client pour annoncer la livraison. */
-export function msgScheduled(d: DeliveryView, companyName: string, c = getCountry(null)): string {
+export function msgScheduled(d: DeliveryView, companyName: string, c = getCountry(null), link?: string): string {
   const when = d.scheduled_at ? ` aujourd'hui vers ${formatTime(d.scheduled_at, c)}` : " prochainement";
-  return `Bonjour ${d.customer_name}, ${companyName} vous livrera la commande ${d.reference} de ${d.merchant_name}${when}. ${amountLine(d, c)}`;
+  return `Bonjour ${d.customer_name}, ${companyName} vous livrera la commande ${d.reference} de ${d.merchant_name}${when}. ${amountLine(d, c)}${link ? ` Suivez votre livraison : ${link}` : ""}`;
 }
 
 /** Message de l'administrateur au livreur avec les détails de la course. */

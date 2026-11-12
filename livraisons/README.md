@@ -92,6 +92,27 @@ l'entreprise de livraison installée :
 - Aucun SMS de vérification n'est envoyé (pas de fournisseur configuré) ; au plus 5 inscriptions par heure
   et par connexion. Désactivez tout compte suspect depuis sa fiche.
 
+## Fonctions « livraison à la demande »
+
+- **Véhicule et prix automatique** : à la commande, choix Moto / Tricycle / Voiture / Camionnette / Camion
+  et options (aide au chargement, colis fragile). Prix = prise en charge + prix au km × distance estimée
+  entre le quartier de la boutique et celui du client (centres approximatifs, ×1,35 pour la route),
+  minimum par véhicule, arrondi à la centaine. Grille modifiable dans **Paramètres**. Le commerçant ne
+  saisit pas le prix ; l'administrateur peut le remplacer. Quartier inconnu : tarif minimum.
+- **Bourse aux courses** (Paramètres → Attribution « Bourse ») : page **Courses dispo** du livreur ; il
+  voit les courses compatibles avec son véhicule et les accepte — le premier qui accepte l'obtient.
+- **Livreur favori** : la course lui est proposée en priorité pendant 10 minutes.
+- **Suivi GPS** : pendant la course, le téléphone du livreur (page de la course ouverte) envoie sa
+  position toutes les 30 s ; visible sur la fiche et sur le lien de suivi du client (masquée après).
+- **Lien de suivi de chaque livraison** : `/livraison/<jeton>`, inclus dans les messages WhatsApp/SMS ;
+  étapes, carte, sans téléphone, adresse exacte ni montant.
+- **Note du client** (1 à 5 étoiles + commentaire) sur ce lien, après la livraison ; moyenne par livreur.
+- **Signature du client** sur l'écran du livreur à la confirmation.
+- Cartes : OpenStreetMap via Leaflet (gratuit, sans clé ; respecter l'attribution et un usage modéré).
+
+Non inclus pour l'instant : courses à plusieurs arrêts, portefeuille / paiement en ligne, points de
+fidélité, connexion Shopify / WooCommerce, calcul d'itinéraire réel (adresses GPS précises).
+
 ## Code de vérification par e-mail
 
 Quand l'envoi d'e-mails est configuré, l'inscription demande un **e-mail obligatoire** et envoie un

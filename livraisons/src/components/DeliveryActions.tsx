@@ -6,6 +6,7 @@ import { assignAction, noteAction, paymentAction, statusAction } from "@/app/act
 import { canTransition, FAILURE_REASONS, PAYMENT_STATUS_LABELS, type DeliveryStatus, type PaymentStatus, type Role } from "@/lib/constants";
 import type { PaymentMethodConfig } from "@/lib/regions";
 import { ActionForm, ConfirmSubmit, Field, inputProps, PhotoInput, SubmitButton } from "./forms";
+import { SignaturePad } from "./SignaturePad";
 import { cx } from "./ui";
 
 interface D {
@@ -98,6 +99,7 @@ export function CourierActions({ d, role, paymentMethods, currencyLabel, amountL
                   <textarea {...inputProps("note", state)} rows={2} placeholder="ex. Remis au gardien, client a payé la monnaie…" />
                 </Field>
                 <PhotoInput />
+                <SignaturePad />
                 <ConfirmSubmit
                   label="Confirmer la livraison"
                   icon={<CheckCircle2 className="h-5 w-5" aria-hidden />}

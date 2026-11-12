@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { saveDeliveryAction } from "@/app/actions";
+import { formatNumber, OPTIONS, quote, VEHICLE_HINTS, VEHICLE_TYPES, type OptionCode, type Tariffs, type VehicleType } from "@/lib/pricing";
 import type { PaymentMethodConfig } from "@/lib/regions";
 import { Field, FormMessage, inputProps, SubmitButton, useFormKey } from "./forms";
 
@@ -25,6 +26,10 @@ export function DeliveryForm({
   phoneExample,
   city,
   shipmentId,
+  tariffs,
+  pickupByMerchant,
+  ownPickup,
+  favorites,
 }: {
   id?: number;
   defaults?: Record<string, string>;
@@ -40,11 +45,32 @@ export function DeliveryForm({
   city: string;
   /** Livraison locale d'un colis international. */
   shipmentId?: number;
+  tariffs: Tariffs;
+  /** Quartier de retrait de chaque commerçant (administrateur). */
+  pickupByMerchant: Record<string, string | null>;
+  /** Quartier de retrait du commerçant connecté. */
+  ownPickup?: string | null;
+  /** Livreurs actifs proposables comme favoris. */
+  favorites: Option[];
 }) {
   const [state, action] = useActionState(saveDeliveryAction, {});
   const formKey = useFormKey(state);
   const [merchantChoice, setMerchantChoice] = useState(state.values?.merchant_id ?? defaults.merchant_id ?? "");
   const p = (name: string) => inputProps(name, state, defaults);
+  const initialOptions = (() => {
+    try {
+      return JSON.parse(defaults.options ?? "[]") as OptionCode[];
+    } catch {
+      return [];
+    }
+  })();
+  const [vehicle, setVehicle] = useState<VehicleType>((state.values?.vehicle_type ?? defaults.vehicle_type ?? "Moto") as VehicleType);
+  const [options, setOptions] = useState<OptionCode[]>(initialOptions);
+  const [dropoff, setDropoff] = useState(state.values?.neighborhood ?? defaults.neighborhood ?? "");
+  const pickup = isAdmin ? pickupByMerchant[merchantChoice] ?? null : ownPickup ?? null;
+  const q = quote(tariffs, vehicle, pickup, dropoff, options);
+  const fallback = Math.ceil((tariffs.vehicles[vehicle].min + options.reduce((s, o) => s + tariffs.options[o], 0)) / 100) * 100;
+  const estimate = q ? `${formatNumber(q.price)} ${currencyLabel} (≈ ${formatNumber(q.km)} km)` : `${formatNumber(fallback)} ${currencyLabel} (tarif minimum : quartier non reconnu)`;
   const e = (name: string) => state.errors?.[name];
 
   return (
@@ -126,7 +152,7 @@ export function DeliveryForm({
             <input {...p("address")} placeholder="Rue, villa, immeuble, étage…" />
           </Field>
           <Field label="Quartier" name="neighborhood" error={e("neighborhood")} required>
-            <input {...p("neighborhood")} list="quartiers" placeholder="ex. Sacré-Cœur" />
+            <input {...p("neighborhood")} list="quartiers" placeholder="ex. Sacré-Cœur" onChange={(ev) => setDropoff(ev.target.value)} />
             <datalist id="quartiers">
               {neighborhoods.map((n) => (
                 <option key={n} value={n} />
@@ -140,8 +166,70 @@ export function DeliveryForm({
       </section>
 
       <section className="card space-y-4 p-4 sm:p-5">
+        <h2 className="font-semibold text-ink">Véhicule et prix de la course</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="Véhicule">
+          {VEHICLE_TYPES.map((v) => (
+            <label
+              key={v}
+              className={`flex cursor-pointer flex-col rounded-xl border p-3 text-sm transition ${vehicle === v ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/30" : "border-slate-300 bg-white"}`}
+            >
+              <input type="radio" name="vehicle_type" value={v} checked={vehicle === v} onChange={() => setVehicle(v)} className="sr-only" />
+              <span className="font-semibold text-ink">{v}</span>
+              <span className="text-xs text-ink-muted">{VEHICLE_HINTS[v]}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {(Object.keys(OPTIONS) as OptionCode[]).map((o) => (
+            <label key={o} className="flex items-center gap-2 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                name="options"
+                value={o}
+                checked={options.includes(o)}
+                onChange={(ev) => setOptions((cur) => (ev.target.checked ? [...cur, o] : cur.filter((x) => x !== o)))}
+                className="h-4 w-4"
+              />
+              {OPTIONS[o]} (+{formatNumber(tariffs.options[o])} {currencyLabel})
+            </label>
+          ))}
+        </div>
+        <div className="rounded-xl bg-brand-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">Prix estimé de la course</p>
+          <p className="text-xl font-bold text-brand-800">{estimate}</p>
+          <p className="text-xs text-brand-800/80">
+            {pickup ? `Départ : ${pickup}` : "Départ : quartier de la boutique non renseigné"} · arrivée : {dropoff || "—"}. Distance estimée entre quartiers.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {isAdmin ? (
+            <Field
+              label={`Frais de livraison (${currencyLabel})`}
+              name="delivery_fee"
+              error={e("delivery_fee")}
+              hint="Laissez vide pour appliquer le prix estimé ; ou saisissez un prix négocié."
+            >
+              <input {...p("delivery_fee")} inputMode="numeric" placeholder={`Automatique : ${formatNumber(q?.price ?? fallback)}`} />
+            </Field>
+          ) : null}
+          <Field label="Livreur favori" name="preferred_courier_id" hint="La course lui est proposée en priorité pendant 10 minutes.">
+            <select {...p("preferred_courier_id")}>
+              <option value="">Aucun</option>
+              {favorites
+                .filter((c) => c.active)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        </div>
+      </section>
+
+      <section className="card space-y-4 p-4 sm:p-5">
         <h2 className="font-semibold text-ink">Paiement</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label={`Montant à collecter (${currencyLabel})`} name="amount_to_collect" error={e("amount_to_collect")} hint="0 si la commande est déjà payée." required>
             <input {...p("amount_to_collect")} inputMode="numeric" placeholder="15000" />
           </Field>
@@ -155,10 +243,7 @@ export function DeliveryForm({
               ))}
             </select>
           </Field>
-          <Field label={`Frais de livraison (${currencyLabel})`} name="delivery_fee" error={e("delivery_fee")} hint="Déduits du montant reversé au commerçant." required>
-            <input {...p("delivery_fee")} inputMode="numeric" placeholder="2000" />
-          </Field>
-          <Field label="Notes" name="notes" error={e("notes")} className="sm:col-span-3">
+          <Field label="Notes" name="notes" error={e("notes")} className="sm:col-span-2">
             <textarea {...p("notes")} rows={2} placeholder="Contenu du colis, fragilité, consignes…" />
           </Field>
         </div>

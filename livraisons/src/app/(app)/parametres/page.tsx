@@ -7,7 +7,9 @@ import { ActiveBadge, Card, DefinitionList, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf, getCompany } from "@/lib/company";
 import { formatDateTime, formatPhone } from "@/lib/format";
+import { DispatchSettings } from "@/components/DispatchSettings";
 import { mailConfigured } from "@/lib/mail";
+import { parseTariffs } from "@/lib/pricing";
 import { listAdmins } from "@/lib/people";
 
 export const metadata: Metadata = { title: "Paramètres" };
@@ -80,6 +82,10 @@ export default async function SettingsPage() {
             Une intégration automatique demande un contrat marchand et des clés API fournies par chaque opérateur (opérateurs de mobile money,
             fournisseur SMS, WhatsApp Business, transporteurs). Aucune connexion n'est simulée dans cette version : voir le fichier README pour les paramètres à prévoir.
           </p>
+        </Card>
+
+        <Card title="Courses : attribution et tarifs" className="lg:col-span-2">
+          <DispatchSettings mode={company.dispatch_mode} tariffs={parseTariffs(company.tariffs)} currencyLabel={country.currencyLabel} />
         </Card>
 
         <Card title="Inscriptions publiques" className="lg:col-span-2">

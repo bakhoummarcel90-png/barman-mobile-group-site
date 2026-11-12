@@ -11,7 +11,7 @@ import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } fro
 /** Exclut les inscriptions dont l'e-mail n'est pas encore confirmé (comptes pas encore créés pour de bon). */
 const UNVERIFIED_FILTER = "AND NOT EXISTS (SELECT 1 FROM users vu WHERE vu.merchant_id = m.id AND vu.email_verified = 0)";
 
-export const VEHICLES = ["Moto", "Vélo", "Voiture", "Tricycle", "À pied"];
+export const VEHICLES = ["Moto", "Vélo", "À pied", "Tricycle", "Voiture", "Camionnette", "Camion"];
 
 function requireAdmin(actor: Actor): void {
   if (actor.role !== "admin") throw new UserError("Action réservée à l'administrateur.");
@@ -480,4 +480,16 @@ export function deleteOwnAccount(actor: Actor, password: string): void {
     revokeSessionsFor(u.id);
     logEvent({ companyId: actor.companyId, userId: null, subjectUserId: u.id, merchantId: u.merchant_id, kind: "account", message: "Compte supprimé à la demande de son titulaire" });
   });
+}
+
+/** Livreurs actifs proposables comme « livreur favori » (administrateur et commerçants). */
+export function favoriteCourierOptions(actor: Actor): { id: number; name: string; active: number }[] {
+  if (actor.role === "courier") return [];
+  return all("SELECT id, name, active FROM users WHERE company_id = ? AND role = 'courier' AND active = 1 AND pending = 0 ORDER BY name", actor.companyId);
+}
+
+/** Quartier de retrait de chaque commerçant (calcul du prix). */
+export function merchantPickups(actor: Actor): Record<string, string | null> {
+  const rows = all<{ id: number; neighborhood: string | null }>("SELECT id, neighborhood FROM merchants WHERE company_id = ?", actor.companyId);
+  return Object.fromEntries(rows.map((r) => [String(r.id), r.neighborhood]));
 }

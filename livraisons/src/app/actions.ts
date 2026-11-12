@@ -20,7 +20,9 @@ import * as people from "@/lib/people";
 import * as shipments from "@/lib/shipments";
 import { getCountry, isValidPaymentMethod } from "@/lib/regions";
 import { needsSetup, parseSetupForm, runSetup } from "@/lib/setup";
+import { run } from "@/lib/db";
 import * as notifications from "@/lib/notifications";
+import { OPTIONS, VEHICLE_TYPES } from "@/lib/pricing";
 import { mailConfigured } from "@/lib/mail";
 import * as signup from "@/lib/signup";
 import * as verification from "@/lib/verification";
@@ -165,7 +167,9 @@ export async function statusAction(_: FormState, fd: FormData): Promise<FormStat
         return invalid({ collected_amount: "Indiquez le montant encaissé en chiffres (0 si rien n'a été encaissé)." }, fd, "Vérifiez le montant encaissé.");
     }
     const photo = await savePhoto(actor.companyId, fd.get("photo"));
+    const signatureFile = to === "livree" ? await savePhoto(actor.companyId, fd.get("signature")) : null;
     deliveries.changeStatus(actor, id, {
+      signature: signatureFile,
       to,
       note: optional(fd, "note"),
       failureReason: [optional(fd, "failure_reason"), optional(fd, "failure_detail")].filter(Boolean).join(" : ") || null,
@@ -577,4 +581,63 @@ export async function deletePushSubscriptionAction(endpoint: string): Promise<Fo
   notifications.deletePushSubscription(actor, endpoint);
   refresh();
   return { ok: true, message: "Notifications désactivées sur cet appareil." };
+}
+
+/* ------------------------------------------------------------------ */
+/* Bourse aux courses, GPS, suivi public, notes, réglages               */
+/* ------------------------------------------------------------------ */
+
+export async function acceptDeliveryAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["courier"]);
+  let id: number;
+  try {
+    id = idFrom(fd);
+    deliveries.acceptDelivery(actor, id);
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  redirect(`/commandes/${id}?ok=acceptee`);
+}
+
+/** Appelé régulièrement par le téléphone du livreur pendant la course. */
+export async function reportPositionAction(id: number, lat: number, lng: number): Promise<{ ok: boolean }> {
+  const actor = await requireUser(["courier"]);
+  try {
+    deliveries.reportPosition(actor, id, lat, lng);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function rateDeliveryAction(_: FormState, fd: FormData): Promise<FormState> {
+  try {
+    deliveries.rateDelivery(str(fd, "token"), Number(str(fd, "rating")), optional(fd, "comment"));
+  } catch (err) {
+    return failure(err);
+  }
+  return { ok: true, message: "Merci pour votre avis !" };
+}
+
+export async function dispatchSettingsAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const mode = str(fd, "dispatch_mode") === "bourse" ? "bourse" : "manuel";
+  const tariffs: Record<string, unknown> = { vehicles: {}, options: {} };
+  for (const v of VEHICLE_TYPES) {
+    const n = (k: string) => parseAmount(str(fd, `${v}_${k}`));
+    const base = n("base");
+    const perKm = n("perKm");
+    const min = n("min");
+    if (base === null || perKm === null || min === null) return { ok: false, message: `Tarif « ${v} » : chiffres uniquement.` };
+    (tariffs.vehicles as Record<string, unknown>)[v] = { base, perKm, min };
+  }
+  for (const o of Object.keys(OPTIONS)) {
+    const val = parseAmount(str(fd, `option_${o}`));
+    if (val === null) return { ok: false, message: "Prix des options : chiffres uniquement." };
+    (tariffs.options as Record<string, unknown>)[o] = val;
+  }
+  run("UPDATE companies SET dispatch_mode = ?, tariffs = ? WHERE id = ?", mode, JSON.stringify(tariffs), actor.companyId);
+  refresh();
+  return { ok: true, message: "Réglages enregistrés." };
 }

@@ -9,9 +9,14 @@ import { Alert, Card, DefinitionList, PageHeader, PaymentBadge, StatusBadge } fr
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
 import { canTransition } from "@/lib/constants";
-import { canEdit, getDelivery } from "@/lib/deliveries";
+import { canEdit, courierRating, getDelivery, trackingTokenFor } from "@/lib/deliveries";
 import { deliveryEvents } from "@/lib/events";
-import { formatDateTime, formatMoney, formatPhone } from "@/lib/format";
+import { formatDateTime, formatMoney, formatPhone, formatTime } from "@/lib/format";
+import { headers } from "next/headers";
+import { LiveLocation } from "@/components/LiveLocation";
+import { LiveMap, type MapPoint } from "@/components/LiveMap";
+import { get } from "@/lib/db";
+import { coordsOf, OPTIONS, type OptionCode } from "@/lib/pricing";
 import { msgCantFind, msgOnTheWay, msgScheduled, msgToCourier, msgToMerchant, whatsappLink } from "@/lib/messages";
 import { courierOptions } from "@/lib/people";
 import { paymentMethodLabel } from "@/lib/regions";
@@ -26,6 +31,7 @@ const OK_MESSAGES: Record<string, string> = {
   echec: "Échec enregistré. Le colis doit être rapporté au commerçant, sauf nouvelle tentative.",
   retour_commercant: "Retour au commerçant enregistré.",
   annulee: "Commande annulée.",
+  acceptee: "Course acceptée : elle est à vous. Démarrez-la quand vous partez chercher le colis.",
 };
 
 export default async function DeliveryPage({
@@ -62,7 +68,21 @@ export default async function DeliveryPage({
     ((d.status === "attribuee" && canTransition(d.status, "en_cours", role)) || d.status === "en_cours" || d.status === "echec");
   const canCancel = canTransition(d.status, "annulee", role);
   const canAssign = isAdmin && ["a_attribuer", "attribuee", "echec"].includes(d.status);
-  const customerMessage = role === "courier" ? msgOnTheWay(d, user.name, country) : msgScheduled(d, user.companyName, country);
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3001";
+  const origin = `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`;
+  const trackingUrl = `${origin}/livraison/${trackingTokenFor(user, d.id)}`;
+  const customerMessage = role === "courier" ? msgOnTheWay(d, user.name, country, trackingUrl) : msgScheduled(d, user.companyName, country, trackingUrl);
+  const opts = (JSON.parse(d.options ?? "[]") as OptionCode[]).filter((o) => o in OPTIONS);
+  const pickupNeighborhood = get<{ neighborhood: string | null }>("SELECT neighborhood FROM merchants WHERE id = ?", d.merchant_id)?.neighborhood ?? null;
+  const mapPoints: MapPoint[] = [];
+  const fromC = coordsOf(pickupNeighborhood);
+  const toC = coordsOf(d.neighborhood);
+  if (fromC) mapPoints.push({ lat: fromC[0], lng: fromC[1], label: "Départ", color: "#64748b" });
+  if (toC) mapPoints.push({ lat: toC[0], lng: toC[1], label: "Client", color: "#0b8a6b" });
+  if (d.courier_lat !== null && d.courier_lng !== null && ["attribuee", "en_cours"].includes(d.status))
+    mapPoints.push({ lat: d.courier_lat, lng: d.courier_lng, label: `Livreur${d.courier_pos_at ? ` (${formatTime(d.courier_pos_at, country)})` : ""}`, color: "#7c3aed" });
+  const rating = d.courier_id ? courierRating(user.companyId, d.courier_id) : null;
 
   const courierActions = showCourierActions ? (
     <Card title={role === "courier" ? "Ma course" : "Mettre à jour la course"}>
@@ -182,6 +202,13 @@ export default async function DeliveryPage({
             <DefinitionList
               items={[
                 ["Date prévue", d.scheduled_at ? formatDateTime(d.scheduled_at, country) : "Non précisée"],
+                ["Véhicule", d.vehicle_type ?? "Moto"],
+                ["Options", opts.length ? opts.map((o) => OPTIONS[o]).join(", ") : "Aucune"],
+                ["Distance estimée", d.distance_km ? `≈ ${d.distance_km.toLocaleString("fr-FR")} km (${pickupNeighborhood ?? "?"} → ${d.neighborhood})` : "Non calculée"],
+                ...(rating && rating.count && role !== "courier"
+                  ? ([["Note moyenne du livreur", `${rating.avg}/5 (${rating.count} avis)`]] as [string, string][])
+                  : []),
+                ...(d.rating ? ([["Note du client", `${"★".repeat(d.rating)}${"☆".repeat(5 - d.rating)}${d.rating_comment ? ` — « ${d.rating_comment} »` : ""}`]] as [string, string][]) : []),
                 ...(d.shipment_id && role !== "courier"
                   ? ([
                       [
@@ -201,6 +228,13 @@ export default async function DeliveryPage({
                 ["Notes du livreur", d.courier_note ? <span className="whitespace-pre-line">{d.courier_note}</span> : null],
               ]}
             />
+            {d.signature ? (
+              <div className="mt-4">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-muted">Signature du client</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/photos/${d.id}?type=signature`} alt="Signature du client" className="h-24 rounded-xl border border-slate-200 bg-white" />
+              </div>
+            ) : null}
             {d.proof_photo ? (
               <div className="mt-4">
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-muted">Photo de preuve</p>
@@ -244,6 +278,22 @@ export default async function DeliveryPage({
           {canCancel ? (
             <Card title="Annulation">
               <CancelForm d={actionData} />
+            </Card>
+          ) : null}
+
+          {d.status !== "annulee" ? (
+            <Card title="Suivi pour le client">
+              {mapPoints.length ? <LiveMap points={mapPoints} height={220} /> : null}
+              {role === "courier" && ["attribuee", "en_cours"].includes(d.status) ? (
+                <div className="mt-3">
+                  <LiveLocation deliveryId={d.id} />
+                </div>
+              ) : null}
+              <p className="mt-3 text-sm text-ink-soft">Lien de suivi (sans compte), à envoyer au client :</p>
+              <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="link block break-all text-sm">
+                {trackingUrl}
+              </a>
+              <p className="mt-1 text-xs text-ink-muted">Il est inclus dans les messages WhatsApp / SMS envoyés au client depuis cette fiche.</p>
             </Card>
           ) : null}
 

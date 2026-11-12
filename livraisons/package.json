@@ -16,6 +16,7 @@
     "test": "tsx --conditions=react-server --test tests/*.test.mts"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
     "next": "16.3.5",
     "react": "^19.3.0",
@@ -24,6 +25,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.12",
     "@types/node": "^22.10.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

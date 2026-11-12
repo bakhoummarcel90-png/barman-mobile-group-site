@@ -12,6 +12,8 @@ import { filterSql, type DeliveryFilters } from "./filters";
 import { formatMoney, isoToLocalInput, localInputToIso, normalizePhone, parseAmount, todayLocal } from "./format";
 import { getCountry, isValidPaymentMethod, paymentMethodLabel, type CountryConfig } from "./regions";
 import { deliveryScope } from "./scope";
+import { randomBytes } from "node:crypto";
+import { courierCanTake, isVehicleType, OPTIONS, parseTariffs, quote, type OptionCode, type Tariffs, type VehicleType } from "./pricing";
 import { onLocalDeliveryCreated, onLocalDeliveryDone } from "./shipments";
 import type { Actor, Delivery, DeliveryView } from "./types";
 import { optional, str, UserError, type FieldErrors } from "./validation";
@@ -115,6 +117,12 @@ export interface DeliveryInput {
   shipmentId: number | null;
   /** Nom d'un commerçant à créer à la volée (administrateur, choix « + Nouveau commerçant »). */
   newMerchantName: string | null;
+  vehicleType: VehicleType;
+  options: OptionCode[];
+  /** Livreur à qui la course est proposée en priorité (bourse). */
+  preferredCourierId: number | null;
+  /** Frais saisis à la main par l'administrateur ; null = prix automatique. */
+  manualFee: number | null;
 }
 
 /** Valide le formulaire. Les messages d'erreur sont prêts à afficher. */
@@ -172,8 +180,14 @@ export function parseDeliveryForm(
     errors.expected_payment_method = "Choisissez le mode de paiement attendu.";
 
   const feeRaw = str(fd, "delivery_fee");
-  const deliveryFee = feeRaw === "" ? 0 : parseAmount(feeRaw);
-  if (deliveryFee === null) errors.delivery_fee = "Frais invalides : chiffres uniquement, par ex. 1500.";
+  // Commerçant : prix toujours automatique. Administrateur : vide = automatique.
+  const manualFee = actor.role === "admin" && feeRaw !== "" ? parseAmount(feeRaw) : null;
+  if (actor.role === "admin" && feeRaw !== "" && manualFee === null) errors.delivery_fee = "Frais invalides : chiffres uniquement, par ex. 1500.";
+  const vehicleRaw = str(fd, "vehicle_type") || "Moto";
+  if (!isVehicleType(vehicleRaw)) errors.vehicle_type = "Choisissez un type de véhicule.";
+  const options = fd.getAll("options").filter((o): o is OptionCode => typeof o === "string" && o in OPTIONS);
+  const prefRaw = str(fd, "preferred_courier_id");
+  const preferredCourierId = /^\d+$/.test(prefRaw) ? Number(prefRaw) : null;
 
   const scheduledRaw = str(fd, "scheduled_at");
   let scheduledAt: string | null = null;
@@ -205,7 +219,11 @@ export function parseDeliveryForm(
       accessNotes,
       amountToCollect: amountToCollect!,
       expectedPaymentMethod,
-      deliveryFee: deliveryFee!,
+      deliveryFee: manualFee ?? 0,
+      manualFee,
+      vehicleType: vehicleRaw as VehicleType,
+      options,
+      preferredCourierId,
       notes,
       scheduledAt,
     },
@@ -227,6 +245,9 @@ export function deliveryFormValues(d: Delivery, country: CountryConfig): Record<
     amount_to_collect: String(d.amount_to_collect),
     expected_payment_method: d.expected_payment_method,
     delivery_fee: String(d.delivery_fee),
+    vehicle_type: d.vehicle_type ?? "Moto",
+    options: d.options ?? "[]",
+    preferred_courier_id: d.preferred_courier_id ? String(d.preferred_courier_id) : "",
     notes: d.notes ?? "",
     scheduled_at: isoToLocalInput(d.scheduled_at, country.timezone),
   };
@@ -273,6 +294,33 @@ function merchantFromName(actor: Actor, name: string): number {
   return id;
 }
 
+export const FAVORITE_PRIORITY_MS = 10 * 60_000;
+
+export function newTrackingToken(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+export function companyTariffs(companyId: number): Tariffs {
+  return parseTariffs(get<{ tariffs: string | null }>("SELECT tariffs FROM companies WHERE id = ?", companyId)?.tariffs);
+}
+
+/**
+ * Frais de la course : montant saisi par l'administrateur, sinon prix
+ * automatique (véhicule + distance estimée entre quartiers + options) ;
+ * quartier inconnu : tarif minimum du véhicule + options.
+ */
+function priceFor(actor: Actor, merchantId: number, input: DeliveryInput, existing?: Delivery): { fee: number; km: number | null } {
+  const from = get<{ neighborhood: string | null }>("SELECT neighborhood FROM merchants WHERE id = ?", merchantId)?.neighborhood ?? null;
+  const tariffs = companyTariffs(actor.companyId);
+  const q = quote(tariffs, input.vehicleType, from, input.neighborhood, input.options);
+  if (actor.role === "admin" && input.manualFee !== null) return { fee: input.manualFee, km: q?.km ?? null };
+  // Encaissement déjà saisi : les frais ne bougent plus.
+  if (existing && existing.payment_status !== "non_encaisse") return { fee: existing.delivery_fee, km: existing.distance_km };
+  if (q) return { fee: q.price, km: q.km };
+  const v = tariffs.vehicles[input.vehicleType];
+  return { fee: Math.ceil((v.min + input.options.reduce((s, o) => s + tariffs.options[o], 0)) / 100) * 100, km: null };
+}
+
 function generateReference(companyId: number, timeZone: string): string {
   const day = todayLocal(timeZone).replace(/-/g, "").slice(2); // AAMMJJ
   const prefix = `LIV-${day}-`;
@@ -302,11 +350,14 @@ export function createDelivery(actor: Actor, input: DeliveryInput): number {
       throw new UserError(`Le numéro de commande « ${reference} » existe déjà.`);
     const status: DeliveryStatus = input.courierId ? "attribuee" : "a_attribuer";
     const now = new Date().toISOString();
+    const priced = priceFor(actor, merchantId, input);
+    if (input.preferredCourierId) assertCourier(actor, input.preferredCourierId);
     const { id } = run(
       `INSERT INTO deliveries (company_id, reference, merchant_id, courier_id, customer_name, customer_phone, address,
          neighborhood, access_notes, amount_to_collect, expected_payment_method, delivery_fee, notes, scheduled_at,
-         status, created_by, created_at, updated_at, shipment_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, created_by, created_at, updated_at, shipment_id, vehicle_type, options, distance_km, tracking_token,
+         preferred_courier_id, offered_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       actor.companyId,
       reference,
       merchantId,
@@ -318,7 +369,7 @@ export function createDelivery(actor: Actor, input: DeliveryInput): number {
       input.accessNotes,
       input.amountToCollect,
       input.expectedPaymentMethod,
-      input.deliveryFee,
+      priced.fee,
       input.notes,
       input.scheduledAt,
       status,
@@ -326,6 +377,12 @@ export function createDelivery(actor: Actor, input: DeliveryInput): number {
       now,
       now,
       input.shipmentId,
+      input.vehicleType,
+      JSON.stringify(input.options),
+      priced.km,
+      newTrackingToken(),
+      input.preferredCourierId,
+      input.preferredCourierId ? new Date(Date.now() + FAVORITE_PRIORITY_MS).toISOString() : null,
     );
     if (input.shipmentId) onLocalDeliveryCreated(actor, input.shipmentId, reference);
     logEvent({
@@ -388,7 +445,7 @@ export function updateDelivery(actor: Actor, id: number, input: DeliveryInput): 
     const reference = input.reference ?? d.reference;
     if (referenceTaken(actor.companyId, reference, id))
       throw new UserError(`Le numéro de commande « ${reference} » existe déjà.`);
-    if (d.payment_status !== "non_encaisse" && (input.amountToCollect !== d.amount_to_collect || input.deliveryFee !== d.delivery_fee))
+    if (d.payment_status !== "non_encaisse" && (input.amountToCollect !== d.amount_to_collect || (input.manualFee !== null && input.manualFee !== d.delivery_fee)))
       throw new UserError("Un encaissement est déjà saisi : corrigez les montants depuis la section Encaissement.");
 
     const next: Record<string, SqlValue> = {
@@ -401,9 +458,13 @@ export function updateDelivery(actor: Actor, id: number, input: DeliveryInput): 
       access_notes: input.accessNotes,
       amount_to_collect: input.amountToCollect,
       expected_payment_method: input.expectedPaymentMethod,
-      delivery_fee: input.deliveryFee,
+      delivery_fee: priceFor(actor, merchantId, input, d).fee,
       notes: input.notes,
       scheduled_at: input.scheduledAt,
+      vehicle_type: input.vehicleType,
+      options: JSON.stringify(input.options),
+      distance_km: priceFor(actor, merchantId, input, d).km,
+      preferred_courier_id: input.preferredCourierId,
     };
     const changed = Object.keys(next).filter((k) => (d as unknown as Record<string, SqlValue>)[k] !== next[k]);
     if (changed.length) {
@@ -475,6 +536,8 @@ export interface StatusChange {
   collectedAmount?: number | null;
   collectedMethod?: string | null;
   proofPhoto?: string | null;
+  /** Signature du client (image), à la livraison. */
+  signature?: string | null;
 }
 
 /**
@@ -557,6 +620,10 @@ export function changeStatus(actor: Actor, id: number, change: StatusChange): vo
     if (note && actor.role === "courier") {
       sets.push("courier_note = ?");
       params.push(note);
+    }
+    if (change.signature && to === "livree") {
+      sets.push("signature = ?");
+      params.push(change.signature);
     }
     if (change.proofPhoto) {
       sets.push("proof_photo = ?");
@@ -643,4 +710,149 @@ export function reviewPayment(
       message: `Encaissement — ${parts.join(" ")}`,
     });
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Bourse aux courses, suivi GPS, lien de suivi, notes                  */
+/* ------------------------------------------------------------------ */
+
+/** Courses que le livreur peut accepter (bourse) : à attribuer, véhicule compatible, priorité au favori. */
+export function availableForCourier(actor: Actor): DeliveryView[] {
+  if (actor.role !== "courier") return [];
+  const me = get<{ vehicle: string | null }>("SELECT vehicle FROM users WHERE id = ?", actor.id);
+  const now = new Date().toISOString();
+  const rows = all<DeliveryView & { merchant_neighborhood: string | null }>(
+    `${SELECT_VIEW.replace("m.phone AS merchant_phone,", "m.phone AS merchant_phone, m.neighborhood AS merchant_neighborhood,")}
+      WHERE d.company_id = ? AND d.status = 'a_attribuer' AND d.courier_id IS NULL
+        AND (d.preferred_courier_id IS NULL OR d.preferred_courier_id = ? OR d.offered_until IS NULL OR d.offered_until < ?)
+      ORDER BY COALESCE(d.scheduled_at, d.created_at) ASC LIMIT 100`,
+    actor.companyId,
+    actor.id,
+    now,
+  );
+  return rows.filter((d) => courierCanTake(me?.vehicle ?? null, d.vehicle_type));
+}
+
+/** Le livreur accepte une course : le premier qui accepte l'obtient. */
+export function acceptDelivery(actor: Actor, id: number): void {
+  if (actor.role !== "courier") throw new UserError("Seuls les livreurs acceptent des courses.");
+  transaction(() => {
+    const ok = availableForCourier(actor).some((d) => d.id === id);
+    if (!ok) throw new UserError("Cette course n'est plus disponible (déjà prise par un autre livreur, ou véhicule non adapté).");
+    const r = run(
+      "UPDATE deliveries SET courier_id = ?, status = 'attribuee', updated_at = ? WHERE id = ? AND company_id = ? AND status = 'a_attribuer' AND courier_id IS NULL",
+      actor.id,
+      new Date().toISOString(),
+      id,
+      actor.companyId,
+    );
+    if (r.changes !== 1) throw new UserError("Trop tard : un autre livreur vient d'accepter cette course.");
+    logEvent({ companyId: actor.companyId, userId: actor.id, deliveryId: id, kind: "status", fromStatus: "a_attribuer", toStatus: "attribuee", message: `Course acceptée par ${actor.name}` });
+  });
+}
+
+/** Position GPS envoyée par le téléphone du livreur pendant la course. */
+export function reportPosition(actor: Actor, id: number, lat: number, lng: number): void {
+  if (actor.role !== "courier") throw new UserError("Action réservée au livreur.");
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw new UserError("Position invalide.");
+  run(
+    "UPDATE deliveries SET courier_lat = ?, courier_lng = ?, courier_pos_at = ? WHERE id = ? AND company_id = ? AND courier_id = ? AND status IN ('attribuee','en_cours')",
+    Math.round(lat * 1e5) / 1e5,
+    Math.round(lng * 1e5) / 1e5,
+    new Date().toISOString(),
+    id,
+    actor.companyId,
+    actor.id,
+  );
+}
+
+/** Jeton du lien de suivi (créé au besoin pour les anciennes commandes). */
+export function trackingTokenFor(actor: Actor, id: number): string {
+  const d = requireDelivery(actor, id);
+  if (d.tracking_token) return d.tracking_token;
+  const t = newTrackingToken();
+  run("UPDATE deliveries SET tracking_token = ? WHERE id = ? AND tracking_token IS NULL", t, id);
+  return get<{ tracking_token: string }>("SELECT tracking_token FROM deliveries WHERE id = ?", id)!.tracking_token;
+}
+
+export interface PublicDelivery {
+  reference: string;
+  status: DeliveryStatus;
+  merchant_name: string;
+  merchant_neighborhood: string | null;
+  neighborhood: string;
+  company_name: string;
+  company_phone: string | null;
+  country_code: string;
+  courier_first_name: string | null;
+  vehicle_type: string | null;
+  scheduled_at: string | null;
+  courier_lat: number | null;
+  courier_lng: number | null;
+  courier_pos_at: string | null;
+  rating: number | null;
+  events: { to_status: DeliveryStatus; created_at: string }[];
+}
+
+/** Suivi public d'une livraison locale (lien envoyé au client) : sans téléphone, adresse exacte ni montants. */
+export function publicDelivery(token: string): PublicDelivery | null {
+  if (!/^[A-Za-z0-9_-]{12,32}$/.test(token)) return null;
+  const d = get<Omit<PublicDelivery, "events" | "courier_first_name"> & { id: number; courier_name: string | null }>(
+    `SELECT d.id, d.reference, d.status, d.neighborhood, d.vehicle_type, d.scheduled_at, d.courier_lat, d.courier_lng, d.courier_pos_at, d.rating,
+            m.name AS merchant_name, m.neighborhood AS merchant_neighborhood, c.name AS company_name, c.phone AS company_phone,
+            c.country_code, u.name AS courier_name
+       FROM deliveries d JOIN merchants m ON m.id = d.merchant_id JOIN companies c ON c.id = d.company_id
+       LEFT JOIN users u ON u.id = d.courier_id
+      WHERE d.tracking_token = ?`,
+    token,
+  );
+  if (!d) return null;
+  const events = all<{ to_status: DeliveryStatus; created_at: string }>(
+    "SELECT to_status, created_at FROM events WHERE delivery_id = ? AND kind IN ('status','created') AND to_status IS NOT NULL ORDER BY id DESC",
+    d.id,
+  );
+  const live = d.status === "en_cours" || d.status === "attribuee";
+  return {
+    reference: d.reference,
+    status: d.status,
+    merchant_name: d.merchant_name,
+    merchant_neighborhood: d.merchant_neighborhood,
+    neighborhood: d.neighborhood,
+    company_name: d.company_name,
+    company_phone: d.company_phone,
+    country_code: d.country_code,
+    courier_first_name: d.courier_name ? d.courier_name.split(" ")[0] : null,
+    vehicle_type: d.vehicle_type,
+    scheduled_at: d.scheduled_at,
+    // Position visible seulement pendant la course, et si elle date de moins de 15 minutes.
+    courier_lat: live && d.courier_pos_at && Date.now() - new Date(d.courier_pos_at).getTime() < 15 * 60_000 ? d.courier_lat : null,
+    courier_lng: live && d.courier_pos_at && Date.now() - new Date(d.courier_pos_at).getTime() < 15 * 60_000 ? d.courier_lng : null,
+    courier_pos_at: live ? d.courier_pos_at : null,
+    rating: d.rating,
+    events,
+  };
+}
+
+/** Note donnée par le client (via le lien de suivi), une seule fois, après la livraison. */
+export function rateDelivery(token: string, rating: number, comment: string | null): void {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new UserError("Choisissez une note de 1 à 5 étoiles.");
+  if ((comment?.length ?? 0) > 500) throw new UserError("Commentaire trop long (500 caractères maximum).");
+  const r = run(
+    "UPDATE deliveries SET rating = ?, rating_comment = ?, rated_at = ? WHERE tracking_token = ? AND status = 'livree' AND rating IS NULL",
+    rating,
+    comment,
+    new Date().toISOString(),
+    token,
+  );
+  if (r.changes !== 1) throw new UserError("Cette livraison ne peut pas (ou plus) être notée.");
+}
+
+/** Note moyenne d'un livreur. */
+export function courierRating(companyId: number, courierId: number): { avg: number | null; count: number } {
+  const r = get<{ avg: number | null; n: number }>(
+    "SELECT AVG(rating) AS avg, COUNT(rating) AS n FROM deliveries WHERE company_id = ? AND courier_id = ? AND rating IS NOT NULL",
+    companyId,
+    courierId,
+  )!;
+  return { avg: r.avg === null ? null : Math.round(r.avg * 10) / 10, count: r.n };
 }

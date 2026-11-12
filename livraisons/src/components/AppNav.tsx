@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   Banknote,
   Bell,
+  Inbox,
   Bike,
   ClipboardList,
   LayoutDashboard,
@@ -48,6 +49,7 @@ const NAV: Record<Role, Item[]> = {
   ],
   courier: [
     { href: "/livraisons", label: "Aujourd'hui", icon: Truck },
+    { href: "/courses", label: "Courses dispo", icon: Inbox },
     { href: "/commandes", label: "Historique", icon: ClipboardList },
     { href: "/encaissements", label: "Mon argent", icon: Banknote },
   ],

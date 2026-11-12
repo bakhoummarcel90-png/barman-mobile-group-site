@@ -18,6 +18,12 @@ liens de suivi au nom de la boutique, inscription publique `/inscription` (comme
 actifs, livreurs validés par l'admin), notifications admin (cloche + push), code de vérification
 par e-mail (Brevo).
 
+## Pull request n°10 : fonctions « livraison à la demande »
+Véhicule + prix automatique (grille dans Paramètres), bourse aux courses (« Courses dispo »), livreur
+favori, GPS du livreur + carte, lien de suivi par livraison (`/livraison/<jeton>`), note du client,
+signature. Pour activer la bourse : Paramètres → Attribution des courses → « Bourse ».
+À faire ensuite : plusieurs arrêts, notifications « nouvelle course » aux livreurs, paiement en ligne.
+
 ## En cours : activer le code par e-mail (Brevo)
 - Compte Brevo créé ; expéditeur `bakhoummarcel90@gmail.com` vérifié ; clé API « Sen service
   livraisons » créée (accès restreint, Emails transactionnels = Tous).
