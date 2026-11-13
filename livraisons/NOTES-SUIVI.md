@@ -1,6 +1,6 @@
 # Où on en est (suivi du projet)
 
-_Dernière mise à jour : 11 novembre 2026_
+_Dernière mise à jour : 13 novembre 2026_
 
 ## En ligne
 - Application : https://senservicelivraison.up.railway.app (Railway, dossier `livraisons`, volume `/data`, branche `main`)
@@ -33,6 +33,25 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
   → Update Variables → Deploy → vérifier dans Paramètres : « Vérification par e-mail : activée »
   → faire une inscription test.
 - La clé Brevo expire le 10 nov. 2027 ou après 90 jours sans utilisation.
+
+## En cours : publication sur Google Play (reprise le 14 novembre)
+- Décision : publier au nom de **Barman Mobile** (entreprise déclarée) avec un compte **Organisation**
+  (pas de règle des 12 testeurs). Nom de développeur saisi : « Barman Mobile ». Nom de l'appli :
+  « Sen Service Livraisons ».
+- Fait : Gmail de l'entreprise créé ; inscription Play Console commencée (play.google.com/console/signup),
+  arrêtée à l'écran « Saisissez un numéro D-U-N-S » (annulé : essais limités, ne rien inventer).
+- **Prochaine étape** : sur https://www.dnb.com/fr-ca/smb/duns/duns-lookup.html (cliquer « Required Only »),
+  chercher Sénégal + Barman Mobile. Trouvé → reprendre le profil de paiement (pays Sénégal, type
+  Organisation, nom/adresse exacts du RCCM) puis payer 25 $. Pas trouvé → demande gratuite sur
+  https://www.dnb.com/fr-ca/smb/duns/get-a-duns.html (jusqu'à 30 jours ouvrables). Ne payer aucun intermédiaire.
+- Apple : création de l'identifiant Apple échouée → reporté. Compte Apple Organisation demandera
+  aussi le D-U-N-S, un site web de l'entreprise et ~99 $/an (paiement après vérification).
+- Pendant l'attente : préparer le paquet Android (PWABuilder) et la fiche du store ; passer en réel avant publication.
+
+## Vidéos promotionnelles (13 novembre)
+- Vidéo 1 « démonstration » (1 min 17, vertical, sous-titres) et vidéo 2 « publicité » (32 s, musique
+  composée, libre de droits) envoyées dans la conversation. Scripts de fabrication dans le dossier
+  de travail de la session (non versionnés).
 
 ## Ensuite
 - Passage en réel : nouveau volume vide, retirer `SEED_DEMO`/`DEMO_PASSWORD`, ajouter `SETUP_CODE`,
