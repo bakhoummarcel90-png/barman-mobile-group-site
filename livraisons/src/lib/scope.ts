@@ -16,6 +16,8 @@ export function deliveryScope(actor: Actor, alias = "d"): { sql: string; params:
   } else if (actor.role === "courier") {
     parts.push(`${alias}.courier_id = ?`);
     params.push(actor.id);
+  } else if (actor.role !== "admin") {
+    parts.push("0"); // GP : aucune livraison
   }
   return { sql: parts.join(" AND "), params };
 }

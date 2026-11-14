@@ -4,11 +4,12 @@ import { useActionState } from "react";
 import { loginAction } from "../actions";
 import { FormMessage, SubmitButton } from "@/components/forms";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string | null }) {
   const [state, action] = useActionState(loginAction, {});
   return (
     <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
+      {next ? <input type="hidden" name="suite" value={next} /> : null}
       <div>
         <label htmlFor="identifier" className="label">
           E-mail ou numéro de téléphone

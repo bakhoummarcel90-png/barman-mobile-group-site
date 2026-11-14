@@ -12,7 +12,8 @@ import { SignupForm } from "./SignupForm";
 export const metadata: Metadata = { title: "Créer un compte" };
 export const dynamic = "force-dynamic";
 
-export default async function SignupPage() {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const type = (await searchParams).type;
   if (await getCurrentUser()) redirect("/");
   const company = signupCompany();
   if (!company) redirect("/installation");
@@ -25,11 +26,11 @@ export default async function SignupPage() {
             <Truck className="h-7 w-7" aria-hidden />
           </span>
           <h1 className="text-2xl font-bold text-ink">Créer un compte</h1>
-          <p className="mt-1 text-sm text-ink-muted">Rejoignez {company.name} : envoyez vos commandes et colis, ou devenez livreur.</p>
+          <p className="mt-1 text-sm text-ink-muted">Rejoignez {company.name} : envoyez vos commandes et colis, devenez livreur ou publiez vos voyages de GP.</p>
         </div>
         <div className="card p-5 sm:p-6">
           {company.signup_open ? (
-            <SignupForm phoneExample={country.phoneExample} neighborhoods={country.neighborhoods} vehicles={VEHICLES} emailRequired={mailConfigured()} />
+            <SignupForm phoneExample={country.phoneExample} neighborhoods={country.neighborhoods} vehicles={VEHICLES} emailRequired={mailConfigured()} initialKind={type === "gp" || type === "particulier" || type === "livreur" ? type : undefined} />
           ) : (
             <div className="text-center">
               <p className="font-semibold text-ink">Les inscriptions sont fermées pour le moment.</p>

@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const user = await getCurrentUser();
   if (!user) redirect("/connexion");
-  redirect(user.role === "courier" ? "/livraisons" : "/tableau-de-bord");
+  redirect(user.role === "courier" ? "/livraisons" : user.role === "gp" ? "/gp" : "/tableau-de-bord");
 }

@@ -1,6 +1,6 @@
 # Où on en est (suivi du projet)
 
-_Dernière mise à jour : 13 novembre 2026_
+_Dernière mise à jour : 14 novembre 2026_
 
 ## En ligne
 - Application : https://senservicelivraison.up.railway.app (Railway, dossier `livraisons`, volume `/data`, branche `main`)
@@ -47,6 +47,17 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
 - Apple : création de l'identifiant Apple échouée → reporté. Compte Apple Organisation demandera
   aussi le D-U-N-S, un site web de l'entreprise et ~99 $/an (paiement après vérification).
 - Pendant l'attente : préparer le paquet Android (PWABuilder) et la fiche du store ; passer en réel avant publication.
+
+## Module GP (14 novembre) — branche `claude/festive-tesla-u8f9l4`, à fusionner puis mettre à jour Railway
+- Décisions : l'expéditeur paie des frais fixes réglables (1 000 FCFA par défaut) par Wave/OM sur le
+  numéro de l'entreprise, l'admin vérifie ; GP validés par l'admin avant de publier.
+- Nouveau rôle `gp`, tables `gp_trips` / `gp_bookings` (migration automatique de la table users,
+  testée sur une copie de base : aucun compte ni session perdus).
+- Pages : `/gp` (GP : mes voyages ; expéditeur : recherche + mes réservations ; admin : paiements à
+  vérifier, GP à valider, voyages, réglages), `/voyages` (public), inscription « GP ».
+- Après mise en ligne : Admin → GP voyageurs → Réglages GP → mettre le **vrai numéro Wave/Orange Money**.
+- Démo : `gp@demo.sn` (même mot de passe que la démo).
+- Plus tard : paiement automatique (PayTech / PayDunya / CinetPay), suivi du colis GP avec numéro SL.
 
 ## Vidéos promotionnelles (13 novembre)
 - Vidéo 1 « démonstration » (1 min 17, vertical, sous-titres) et vidéo 2 « publicité » (32 s, musique

@@ -7,6 +7,7 @@ import { COUNTRIES, getCountry, isValidPaymentMethod } from "./regions";
 import type { Role } from "./constants";
 import type { Actor, Merchant, UserRow } from "./types";
 import { isEmail, optional, PASSWORD_MIN, str, UserError, type FieldErrors } from "./validation";
+import { closeTripsOf, gpOpenCommitments } from "./gp";
 
 /** Exclut les inscriptions dont l'e-mail n'est pas encore confirmé (comptes pas encore créés pour de bon). */
 const UNVERIFIED_FILTER = "AND NOT EXISTS (SELECT 1 FROM users vu WHERE vu.merchant_id = m.id AND vu.email_verified = 0)";
@@ -465,6 +466,11 @@ export function deleteOwnAccount(actor: Actor, password: string): void {
       const admins = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'admin' AND active = 1", actor.companyId)!.n;
       if (admins <= 1)
         throw new UserError("Vous êtes le seul administrateur : ajoutez d'abord un autre administrateur dans Paramètres, ou contactez l'éditeur pour fermer l'entreprise.");
+    }
+    if (u.role === "gp") {
+      const n = gpOpenCommitments(u.id);
+      if (n > 0) throw new UserError(`Vous avez encore ${n} colis confirmé(s) à remettre : marquez-les livrés ou contactez l'administrateur.`);
+      closeTripsOf(u.id);
     }
     if (u.role === "courier") {
       const n = get<{ n: number }>("SELECT COUNT(*) AS n FROM deliveries WHERE courier_id = ? AND status IN ('attribuee','en_cours')", u.id)!.n;

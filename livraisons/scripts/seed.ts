@@ -108,16 +108,69 @@ function seedShipments(companyId: number, adminId: number): number {
   return shipments.length;
 }
 
+
+/* ---------- GP (voyageurs) de démonstration ---------- */
+
+function seedGp(companyId: number, adminId: number, passwordHash: string): number {
+  const day = (offset: number) => addDays(todayLocal(TZ), offset);
+  const gpUser = (name: string, email: string | null, phone: string, zone: string, pending = false) =>
+    run(
+      `INSERT INTO users (company_id, role, name, email, phone, password_hash, zone, active, pending, notes)
+       VALUES (?, 'gp', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      companyId, name, email, phone, passwordHash, zone, pending ? 0 : 1, pending ? 1 : 0, pending ? "Inscrit lui-même" : null,
+    ).id;
+  const fatou = gpUser("Fatou Ba", "gp@demo.sn", "+221700000041", "Dakar ↔ Paris");
+  const mamadou = gpUser("Mamadou Sy", null, "+221700000042", "Dakar ↔ Milan, New York");
+  gpUser("Ousmane Kane", null, "+221700000043", "Dakar ↔ Madrid", true);
+  const trip = (gp: number, from: [string, string], to: [string, string], dep: number, arr: number | null, kg: number, price: number, currency: string, dropoff: string | null, notes: string | null) =>
+    run(
+      `INSERT INTO gp_trips (company_id, gp_id, origin_country, origin_city, destination_country, destination_city, departure_date, arrival_date,
+         deadline_date, capacity_grams, price_per_kg, currency, dropoff_place, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      companyId, gp, from[0], from[1], to[0], to[1], day(dep), arr === null ? null : day(arr), day(Math.max(0, dep - 1)), kg * 1000, price, currency, dropoff, notes,
+    ).id;
+  const paris = trip(fatou, ["SN", "Dakar"], ["FR", "Paris"], 6, 7, 23, 7000, "XOF", "Liberté 6, en face de la pharmacie", "Vêtements, tissus, produits secs bien emballés. Pas de liquides.");
+  trip(fatou, ["FR", "Paris"], ["SN", "Dakar"], 20, 20, 30, 8, "EUR", "Château-Rouge, Paris 18e", "Retour à Dakar : téléphones, vêtements, cosmétiques.");
+  trip(mamadou, ["SN", "Dakar"], ["IT", "Milan"], 10, 11, 20, 6500, "XOF", "Parcelles Assainies, unité 15", null);
+  trip(mamadou, ["US", "New York"], ["SN", "Dakar"], 25, 26, 15, 10, "USD", "Harlem, 116e rue", "Livraison possible à domicile à Dakar par Dakar Express Livraison.");
+  const past = trip(mamadou, ["SN", "Dakar"], ["FR", "Paris"], -15, -14, 20, 7000, "XOF", "Parcelles Assainies, unité 15", null);
+  const sender = (email: string) => get<{ id: number }>("SELECT id FROM users WHERE email = ?", email)?.id;
+  const wax = sender("boutique@demo.sn");
+  if (!wax) return 5;
+  const ago = (days: number) => new Date(Date.now() - days * 86400_000).toISOString();
+  const book = (tripId: number, ref: string, kg: number, desc: string, to: string, phone: string, city: string, status: string, extra: Partial<Record<string, string | number | null>> = {}) =>
+    run(
+      `INSERT INTO gp_bookings (company_id, reference, trip_id, sender_id, weight_grams, description, recipient_name, recipient_phone, recipient_city, fee,
+         payment_method, payment_reference, payment_declared_at, status, confirmed_by, confirmed_at, delivered_at, rating, rating_comment, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      companyId, ref, tripId, wax, kg * 1000, desc, to, phone, city,
+      extra.method ?? null, extra.reference ?? null, extra.declared ?? null, status,
+      extra.confirmed ? adminId : null, extra.confirmed ?? null, extra.delivered ?? null, extra.rating ?? null, extra.comment ?? null,
+      extra.created ?? ago(1), extra.created ?? ago(1),
+    );
+  book(paris, "GP-DEMO-001", 5, "Rouleaux de wax", "Aminata Mbaye", "+33600000001", "Paris", "confirmee", { method: "wave", reference: "WV-58S2K", declared: ago(1), confirmed: ago(1) });
+  book(paris, "GP-DEMO-002", 3, "Bazin et chaussures", "Khady Sow", "+33600000002", "Montreuil", "a_verifier", { method: "orange_money", reference: "OM-77120", declared: ago(0.1), created: ago(0.2) });
+  book(past, "GP-DEMO-003", 4, "Tissus", "Ndeye Diop", "+33600000003", "Paris", "livree", {
+    method: "wave", reference: "WV-31XQ0", declared: ago(17), confirmed: ago(17), delivered: ago(13), rating: 5, comment: "Colis bien arrivé, GP sérieux.", created: ago(18),
+  });
+  run("UPDATE companies SET gp_payment_info = COALESCE(gp_payment_info, ?) WHERE id = ?", "Wave ou Orange Money : 70 000 00 00 (Dakar Express Livraison) — numéro de démonstration", companyId);
+  return 5;
+}
+
 const existing = get<{ n: number }>("SELECT COUNT(*) AS n FROM companies")!.n;
 if (existing && !reset) {
   // Démo déjà installée (ex. en ligne) : on ajoute seulement les colis de démonstration s'ils manquent.
   const demoAdmin = get<{ id: number; company_id: number }>("SELECT id, company_id FROM users WHERE email = 'admin@demo.sn'");
   const hasShipments = demoAdmin && get("SELECT 1 FROM shipments WHERE company_id = ?", demoAdmin.company_id);
-  if (demoAdmin && !hasShipments) {
+  const hasGp = demoAdmin && get("SELECT 1 FROM users WHERE company_id = ? AND role = 'gp'", demoAdmin.company_id);
+  if (demoAdmin && (!hasShipments || !hasGp)) {
     db.exec("BEGIN");
-    const n = seedShipments(demoAdmin.company_id, demoAdmin.id);
+    if (!hasShipments) console.log(`${seedShipments(demoAdmin.company_id, demoAdmin.id)} colis internationaux de démonstration ajoutés à la démo existante.`);
+    if (!hasGp) {
+      seedGp(demoAdmin.company_id, demoAdmin.id, hashPassword(process.env.DEMO_PASSWORD || generatePassword()));
+      console.log("GP de démonstration ajoutés (gp@demo.sn, mot de passe DEMO_PASSWORD).");
+    }
     db.exec("COMMIT");
-    console.log(`${n} colis internationaux de démonstration ajoutés à la démo existante.`);
   } else {
     console.log("La base contient déjà des données. Utilisez `npm run seed -- --reset` pour tout effacer et recréer la démonstration.");
   }
@@ -125,7 +178,7 @@ if (existing && !reset) {
   process.exit(0);
 }
 if (reset) {
-  for (const t of ["email_verifications", "notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
+  for (const t of ["gp_bookings", "gp_trips", "email_verifications", "notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
   console.log("Base vidée.");
 }
 
@@ -393,6 +446,7 @@ settle("merchant_payout", wax, old, "wave", at(-2, "19:30"));
 settle("merchant_payout", tech, old, "wave", at(-2, "19:35"));
 
 seedShipments(company, admin);
+seedGp(company, admin, hash);
 
 db.exec("COMMIT");
 closeDb();
@@ -405,6 +459,7 @@ ${process.env.DEMO_PASSWORD ? "" : "(généré aléatoirement — définissez DE
   Administrateur : admin@demo.sn
   Commerçant     : boutique@demo.sn   (Keur Sokhna Wax)
   Livreur        : 70 000 00 11       (Moussa Diop — connexion par téléphone)
+  GP (voyageur)  : gp@demo.sn         (Fatou Ba — voyages Dakar ↔ Paris)
 
 Les numéros de téléphone de la démonstration sont fictifs.
 Colis internationaux : 6 colis de démonstration (France, Chine, États-Unis, Belgique, Turquie, export vers la France).

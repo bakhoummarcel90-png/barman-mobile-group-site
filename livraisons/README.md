@@ -45,13 +45,14 @@ Production : `npm run build` puis `npm start` (port 3001).
 `npm run seed` crée l'entreprise « Dakar Express Livraison » (4 commerçants, 4 livreurs dont un
 désactivé, ~26 commandes dans tous les statuts, des remises et reversements passés, 6 colis internationaux).
 Sur une démo déjà installée, `npm run seed` (ou `SEED_DEMO=1` au démarrage) ajoute seulement les colis
-de démonstration s'ils manquent.
+de démonstration s'ils manquent (et les GP de démonstration : 2 GP actifs, 1 à valider, 5 voyages, 3 réservations).
 
 | Rôle | Identifiant |
 | --- | --- |
 | Administrateur | `admin@demo.sn` |
 | Commerçant (Keur Sokhna Wax) | `boutique@demo.sn` |
 | Livreur (Moussa Diop) | `70 000 00 11` (connexion par téléphone) |
+| GP voyageur (Fatou Ba, Dakar ↔ Paris) | `gp@demo.sn` |
 
 **Mot de passe** : aucun mot de passe n'est écrit dans le code. Le script en génère un au hasard
 et l'**affiche dans le terminal**. Pour choisir le vôtre :
@@ -160,6 +161,9 @@ Les commerçants et particuliers inscrits eux-mêmes restent actifs, mais appara
   commandes ; consulte ce qui lui est dû et les reversements reçus.
 - **Livreur** : voit **uniquement les livraisons qui lui sont attribuées** ; démarre la course,
   confirme la livraison (montant encaissé, moyen de paiement, note, photo) ou signale un échec.
+- **GP (voyageur)** : n'accède qu'à l'espace `/gp` (ses voyages et leurs réservations), ses
+  notifications et son compte. `requireUser()` sans liste de rôles exclut le GP : toute page
+  ou action qui ne l'autorise pas explicitement lui est fermée.
 
 L'isolation est appliquée côté serveur sur chaque requête (`src/lib/scope.ts`) :
 chaque table porte `company_id`, et les filtres commerçant/livreur sont ajoutés systématiquement.
@@ -182,6 +186,32 @@ vérification des droits.
 | `/suivi`, `/suivi/[numéro]` | **Page publique** (sans compte) où le client suit son colis avec son numéro SL… |
 | `/parametres` | Entreprise, administrateurs, état des intégrations |
 | `/mon-compte` | Changement de mot de passe, déconnexion |
+| `/gp`, `/gp/voyages/…`, `/gp/reservations/…` | Module GP (voir ci-dessous) |
+| `/voyages` | **Page publique** des voyages GP ouverts (sans téléphone ni nom complet des GP) |
+
+## GP : envoi de colis par des voyageurs
+
+Les « GP » transportent des colis dans leurs bagages entre le Sénégal et l'étranger, payés au kilo.
+
+1. **Inscription** sur `/inscription?type=gp` : compte **en attente** jusqu'à la validation par
+   l'administrateur (page `/gp`, « GP à valider » ; vérifier l'identité avant d'accepter).
+2. **Le GP publie ses voyages** : trajet, dates, kilos disponibles, prix au kilo (FCFA, € ou $),
+   lieu et dernier jour de dépôt. Il peut modifier, marquer complet, rouvrir ou annuler.
+3. **L'expéditeur** (compte commerçant ou particulier) cherche un voyage (`/gp` ou `/voyages`),
+   réserve des kilos et accepte la liste des objets interdits. Le voyage passe « complet »
+   quand tous les kilos sont réservés.
+4. **Frais de mise en relation** (réglables dans `/gp` → Réglages GP, 1 000 FCFA par défaut,
+   0 = gratuit) : l'expéditeur les envoie par Wave / Orange Money au numéro indiqué, puis
+   déclare le moyen et la référence du transfert. **Aucun paiement n'est encaissé par
+   l'application** : l'administrateur vérifie et confirme (ou signale « paiement non trouvé »).
+5. Après confirmation, **les coordonnées sont dévoilées** (GP ↔ expéditeur, lieu de dépôt),
+   avec boutons Appeler / WhatsApp / SMS. Avant, les téléphones restent masqués côté serveur.
+6. Le GP (ou l'expéditeur) marque le colis **remis au destinataire** ; l'expéditeur **note le GP**
+   (moyenne affichée sur ses voyages).
+
+Notifications (cloche + push) : paiement déclaré (administrateurs), réservation confirmée
+(GP et expéditeur), paiement non trouvé, voyage annulé, colis livré. Le prix du transport
+(kilos × prix au kilo) se règle directement entre l'expéditeur et le GP.
 
 ## Statuts
 

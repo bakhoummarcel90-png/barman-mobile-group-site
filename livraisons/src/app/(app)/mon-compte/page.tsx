@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChangePasswordForm, DeleteAccountForm } from "@/components/PeopleForms";
 import { Card, DefinitionList, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { ROLES } from "@/lib/constants";
 import { countryOf } from "@/lib/company";
 import { ROLE_LABELS } from "@/lib/constants";
 import { formatPhone } from "@/lib/format";
@@ -12,7 +13,7 @@ import { formatPhone } from "@/lib/format";
 export const metadata: Metadata = { title: "Mon compte" };
 
 export default async function AccountPage() {
-  const user = await requireUser();
+  const user = await requireUser([...ROLES]);
   const country = countryOf(user);
   return (
     <>

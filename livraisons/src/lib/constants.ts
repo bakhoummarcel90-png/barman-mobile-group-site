@@ -1,12 +1,20 @@
 /** Rôles, statuts et transitions autorisées. */
 
-export const ROLES = ["admin", "merchant", "courier"] as const;
+export const ROLES = ["admin", "merchant", "courier", "gp"] as const;
 export type Role = (typeof ROLES)[number];
+
+/**
+ * Rôles de la gestion des livraisons. Le GP (voyageur qui transporte des colis
+ * entre pays) n'a accès qu'à son espace « GP » : les pages qui ne listent pas
+ * explicitement son rôle lui sont fermées (voir requireUser).
+ */
+export const STAFF_ROLES: Role[] = ["admin", "merchant", "courier"];
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Administrateur",
   merchant: "Commerçant",
   courier: "Livreur",
+  gp: "GP (voyageur)",
 };
 
 export const DELIVERY_STATUSES = [

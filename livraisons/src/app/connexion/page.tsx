@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Truck } from "lucide-react";
+import { Plane, Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { get } from "@/lib/db";
 import { signupCompany } from "@/lib/signup";
@@ -10,8 +10,14 @@ import { LoginForm } from "./LoginForm";
 export const metadata: Metadata = { title: "Connexion" };
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
-  if (await getCurrentUser()) redirect("/");
+/** Page interne où revenir après la connexion (ex. un voyage GP vu sur /voyages). */
+function safeNext(raw: string | undefined): string | null {
+  return raw && /^\/[a-z]/i.test(raw) && !raw.startsWith("//") && raw.length < 200 ? raw : null;
+}
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const next = safeNext((await searchParams).suite);
+  if (await getCurrentUser()) redirect(next ?? "/");
   // Aucun compte : première installation.
   if (!get("SELECT 1 FROM users LIMIT 1")) redirect("/installation");
   // Le rappel des comptes de démonstration n'apparaît que si la démo est installée.
@@ -29,13 +35,16 @@ export default async function LoginPage() {
           <p className="mt-1 text-sm text-ink-muted">Commandes, livreurs et encaissements, au même endroit.</p>
         </div>
         <div className="card p-5 sm:p-6">
-          <LoginForm />
+          <LoginForm next={next} />
         </div>
         {signupOpen ? (
           <Link href="/inscription" className="btn-secondary mt-3 w-full">
-            Créer un compte (commerçant, particulier, livreur)
+            Créer un compte (commerçant, particulier, livreur, GP)
           </Link>
         ) : null}
+        <Link href="/voyages" className="btn-secondary mt-3 w-full">
+          <Plane className="h-4 w-4" aria-hidden /> Envoyer un colis par GP : voir les voyages
+        </Link>
         <p className="mt-3 text-center text-sm">
           Vous attendez un colis ?{" "}
           <Link href="/suivi" className="link">
@@ -64,6 +73,9 @@ export default async function LoginPage() {
               </li>
               <li>
                 Livreur : <strong>70 000 00 11</strong>
+              </li>
+              <li>
+                GP (voyageur) : <strong>gp@demo.sn</strong>
               </li>
             </ul>
             <p className="mt-2 text-xs">
