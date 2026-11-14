@@ -369,7 +369,7 @@ function migrate(db: DatabaseSync): void {
     ["deliveries", "rated_at", "TEXT"],
     ["deliveries", "signature", "TEXT"],
     // GP : frais de mise en relation et instructions de paiement (Wave / Orange Money).
-    ["companies", "gp_fee", "INTEGER NOT NULL DEFAULT 1000"],
+    ["companies", "gp_fee", "INTEGER NOT NULL DEFAULT 0"], // lancement : gratuit
     ["companies", "gp_payment_info", "TEXT"],
   ];
   for (const [table, column, ddl] of add) {

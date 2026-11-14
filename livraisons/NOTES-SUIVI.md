@@ -55,7 +55,10 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
   testée sur une copie de base : aucun compte ni session perdus).
 - Pages : `/gp` (GP : mes voyages ; expéditeur : recherche + mes réservations ; admin : paiements à
   vérifier, GP à valider, voyages, réglages), `/voyages` (public), inscription « GP ».
-- Après mise en ligne : Admin → GP voyageurs → Réglages GP → mettre le **vrai numéro Wave/Orange Money**.
+- Décision du 14/11 : **lancement gratuit** (frais GP à 0 par défaut, bandeau « Gratuit pendant le
+  lancement ») ; tableau « Croissance de l'application » sur le tableau de bord admin. Passer au
+  payant plus tard (objectif conseillé : ~50 GP ou ~200 réservations, prévenir un mois avant,
+  commencer à 500 FCFA) : GP voyageurs → Réglages GP → montant + **vrai numéro Wave/Orange Money**.
 - Démo : `gp@demo.sn` (même mot de passe que la démo).
 - Plus tard : paiement automatique (PayTech / PayDunya / CinetPay), suivi du colis GP avec numéro SL.
 

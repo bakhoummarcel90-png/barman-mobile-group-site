@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plane, Search, ShieldCheck, Wallet } from "lucide-react";
+import { LaunchBanner } from "@/components/Growth";
 import { TripCard } from "@/components/GpTripCard";
 import { EmptyState } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
@@ -56,6 +57,7 @@ export default async function PublicTripsPage({ searchParams }: { searchParams: 
           directement votre GP.
         </p>
 
+        {fee === 0 ? <LaunchBanner className="mt-5" /> : null}
         <div className="my-5 grid gap-3 sm:grid-cols-3">
           <div className="card flex items-start gap-3 p-4">
             <ShieldCheck className="h-6 w-6 shrink-0 text-brand-600" aria-hidden />
@@ -66,7 +68,7 @@ export default async function PublicTripsPage({ searchParams }: { searchParams: 
           <div className="card flex items-start gap-3 p-4">
             <Wallet className="h-6 w-6 shrink-0 text-brand-600" aria-hidden />
             <p className="text-sm text-ink-soft">
-              <span className="font-semibold text-ink">Prix clair</span> : prix au kilo affiché{fee ? `, frais de mise en relation de ${formatMoney(fee, country)}` : ""}.
+              <span className="font-semibold text-ink">Prix clair</span> : prix au kilo affiché{fee ? `, frais de mise en relation de ${formatMoney(fee, country)}` : ", sans frais de mise en relation"}.
             </p>
           </div>
           <div className="card flex items-start gap-3 p-4">

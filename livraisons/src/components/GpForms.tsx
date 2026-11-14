@@ -192,7 +192,7 @@ export function BookingForm({
       </label>
       {e("accept_rules") ? <p className="-mt-2 text-sm font-medium text-red-700">{e("accept_rules")}</p> : null}
       <SubmitButton className="btn-primary btn-lg w-full" pendingLabel="Réservation…">
-        {fee ? `Réserver (frais de mise en relation : ${fee})` : "Réserver"}
+        {fee ? `Réserver (frais de mise en relation : ${fee})` : "Réserver (gratuit pendant le lancement)"}
       </SubmitButton>
     </form>
   );
@@ -323,7 +323,7 @@ export function GpSettingsForm({ fee, paymentInfo, currencyLabel }: { fee: numbe
     <ActionForm action={gpSettingsAction}>
       {(state) => (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={`Frais de mise en relation (${currencyLabel})`} name="gp_fee" error={state.errors?.gp_fee} hint="Payés par l'expéditeur à chaque réservation. 0 = gratuit." required>
+          <Field label={`Frais de mise en relation (${currencyLabel})`} name="gp_fee" error={state.errors?.gp_fee} hint="Payés par l'expéditeur à chaque réservation. 0 = gratuit : le bandeau « Gratuit pendant le lancement » s'affiche partout." required>
             <input {...inputProps("gp_fee", state, { gp_fee: String(fee) })} inputMode="numeric" />
           </Field>
           <Field label="Où payer les frais" name="gp_payment_info" error={state.errors?.gp_payment_info} hint="Affiché à l'expéditeur, ex. « Wave : 77 000 00 00 (Barman Mobile) ».">

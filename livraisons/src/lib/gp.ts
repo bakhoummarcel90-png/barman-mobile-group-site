@@ -18,6 +18,7 @@ import { optional, str, UserError, type FieldErrors } from "./validation";
  *  - L'expéditeur (compte commerçant ou particulier) réserve des kilos. Il
  *    paie des frais de mise en relation (montant fixe réglable) par Wave ou
  *    Orange Money sur le numéro de l'entreprise, puis déclare son paiement.
+ *    Frais à 0 (par défaut, période de lancement) : réservation confirmée tout de suite.
  *  - L'administrateur vérifie le paiement : la réservation est confirmée et
  *    les contacts (GP ↔ expéditeur) sont alors seulement dévoilés.
  * Aucun paiement n'est encaissé automatiquement par l'application.
@@ -180,7 +181,7 @@ export interface GpSettings {
 
 export function gpSettings(companyId: number): GpSettings {
   const c = get<{ gp_fee: number; gp_payment_info: string | null }>("SELECT gp_fee, gp_payment_info FROM companies WHERE id = ?", companyId);
-  return { fee: c?.gp_fee ?? 1000, paymentInfo: c?.gp_payment_info ?? null };
+  return { fee: c?.gp_fee ?? 0, paymentInfo: c?.gp_payment_info ?? null };
 }
 
 export function saveGpSettings(actor: Actor, fd: FormData): { errors: FieldErrors } {

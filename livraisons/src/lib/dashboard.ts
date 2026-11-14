@@ -74,6 +74,15 @@ function actionsFor(actor: Actor): DashboardAction[] {
     const applicants = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1", actor.companyId)!.n;
     if (applicants)
       out.push({ label: "Livreurs à valider", detail: "Inscriptions reçues depuis la page d'inscription", count: applicants, href: "/livreurs#a-valider", tone: "warning" });
+    const gp = get<{ pending: number; toVerify: number }>(
+      `SELECT (SELECT COUNT(*) FROM users WHERE company_id = ? AND role = 'gp' AND pending = 1) AS pending,
+              (SELECT COUNT(*) FROM gp_bookings WHERE company_id = ? AND status = 'a_verifier') AS toVerify`,
+      actor.companyId,
+      actor.companyId,
+    )!;
+    if (gp.pending) out.push({ label: "GP à valider", detail: "Vérifiez leur identité avant d'accepter", count: gp.pending, href: "/gp#gp-a-valider", tone: "warning" });
+    if (gp.toVerify)
+      out.push({ label: "Paiements GP à vérifier", detail: "Frais de mise en relation déclarés par les expéditeurs", count: gp.toVerify, href: "/gp#a-verifier", tone: "warning" });
     const merchantsToCheck = get<{ n: number }>("SELECT COUNT(*) AS n FROM merchants WHERE company_id = ? AND review_pending = 1", actor.companyId)!.n;
     if (merchantsToCheck)
       out.push({ label: "Nouveaux commerçants à vérifier", detail: "Inscrits eux-mêmes, comptes déjà actifs", count: merchantsToCheck, href: "/commercants#a-verifier", tone: "warning" });

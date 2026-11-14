@@ -200,14 +200,19 @@ Les « GP » transportent des colis dans leurs bagages entre le Sénégal et l'�
 3. **L'expéditeur** (compte commerçant ou particulier) cherche un voyage (`/gp` ou `/voyages`),
    réserve des kilos et accepte la liste des objets interdits. Le voyage passe « complet »
    quand tous les kilos sont réservés.
-4. **Frais de mise en relation** (réglables dans `/gp` → Réglages GP, 1 000 FCFA par défaut,
-   0 = gratuit) : l'expéditeur les envoie par Wave / Orange Money au numéro indiqué, puis
+4. **Frais de mise en relation** (réglables dans `/gp` → Réglages GP ; **0 par défaut = période
+   de lancement gratuite** : bandeau « Gratuit pendant le lancement » sur `/voyages`, `/gp` et
+   l'inscription, réservations confirmées tout de suite) : l'expéditeur les envoie par Wave / Orange Money au numéro indiqué, puis
    déclare le moyen et la référence du transfert. **Aucun paiement n'est encaissé par
    l'application** : l'administrateur vérifie et confirme (ou signale « paiement non trouvé »).
 5. Après confirmation, **les coordonnées sont dévoilées** (GP ↔ expéditeur, lieu de dépôt),
    avec boutons Appeler / WhatsApp / SMS. Avant, les téléphones restent masqués côté serveur.
 6. Le GP (ou l'expéditeur) marque le colis **remis au destinataire** ; l'expéditeur **note le GP**
    (moyenne affichée sur ses voyages).
+
+Le tableau de bord de l'administrateur affiche la **croissance de l'application** (comptes actifs
+par type, inscriptions, commandes, voyages et réservations GP des 8 dernières semaines) pour
+décider quand activer les frais.
 
 Notifications (cloche + push) : paiement déclaré (administrateurs), réservation confirmée
 (GP et expéditeur), paiement non trouvé, voyage annulé, colis livré. Le prix du transport

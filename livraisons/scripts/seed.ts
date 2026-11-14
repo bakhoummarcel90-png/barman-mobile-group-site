@@ -142,18 +142,20 @@ function seedGp(companyId: number, adminId: number, passwordHash: string): numbe
     run(
       `INSERT INTO gp_bookings (company_id, reference, trip_id, sender_id, weight_grams, description, recipient_name, recipient_phone, recipient_city, fee,
          payment_method, payment_reference, payment_declared_at, status, confirmed_by, confirmed_at, delivered_at, rating, rating_comment, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       companyId, ref, tripId, wax, kg * 1000, desc, to, phone, city,
       extra.method ?? null, extra.reference ?? null, extra.declared ?? null, status,
       extra.confirmed ? adminId : null, extra.confirmed ?? null, extra.delivered ?? null, extra.rating ?? null, extra.comment ?? null,
       extra.created ?? ago(1), extra.created ?? ago(1),
     );
-  book(paris, "GP-DEMO-001", 5, "Rouleaux de wax", "Aminata Mbaye", "+33600000001", "Paris", "confirmee", { method: "wave", reference: "WV-58S2K", declared: ago(1), confirmed: ago(1) });
-  book(paris, "GP-DEMO-002", 3, "Bazin et chaussures", "Khady Sow", "+33600000002", "Montreuil", "a_verifier", { method: "orange_money", reference: "OM-77120", declared: ago(0.1), created: ago(0.2) });
+  // Période de lancement : frais à 0, réservations confirmées sans paiement.
+  book(paris, "GP-DEMO-001", 5, "Rouleaux de wax", "Aminata Mbaye", "+33600000001", "Paris", "confirmee", { confirmed: ago(1) });
+  book(paris, "GP-DEMO-002", 3, "Bazin et chaussures", "Khady Sow", "+33600000002", "Montreuil", "confirmee", { confirmed: ago(0.2), created: ago(0.2) });
   book(past, "GP-DEMO-003", 4, "Tissus", "Ndeye Diop", "+33600000003", "Paris", "livree", {
-    method: "wave", reference: "WV-31XQ0", declared: ago(17), confirmed: ago(17), delivered: ago(13), rating: 5, comment: "Colis bien arrivé, GP sérieux.", created: ago(18),
+    confirmed: ago(18), delivered: ago(13), rating: 5, comment: "Colis bien arrivé, GP sérieux.", created: ago(18),
   });
-  run("UPDATE companies SET gp_payment_info = COALESCE(gp_payment_info, ?) WHERE id = ?", "Wave ou Orange Money : 70 000 00 00 (Dakar Express Livraison) — numéro de démonstration", companyId);
+  // Période de lancement : mise en relation gratuite (à changer dans GP voyageurs → Réglages GP).
+  run("UPDATE companies SET gp_fee = 0, gp_payment_info = COALESCE(gp_payment_info, ?) WHERE id = ?", "Wave ou Orange Money : 70 000 00 00 (Dakar Express Livraison) — numéro de démonstration", companyId);
   return 5;
 }
 

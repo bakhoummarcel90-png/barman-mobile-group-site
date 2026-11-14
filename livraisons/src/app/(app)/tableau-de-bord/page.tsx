@@ -3,6 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, Banknote, Bike, CheckCircle2, Inbox, Plus, Wallet, XCircle } from "lucide-react";
 import { FilterBar } from "@/components/FilterBar";
+import { GrowthCard } from "@/components/Growth";
+import { gpSettings } from "@/lib/gp";
+import { growthStats } from "@/lib/growth";
 import { Timeline } from "@/components/Timeline";
 import { Alert, Card, PageHeader, Stat, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -24,6 +27,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const data = dashboardData(user, filters);
   const events = recentEvents(user, { limit: 12, merchantId: filters.merchantId, courierId: filters.courierId });
   const isAdmin = user.role === "admin";
+  const growth = isAdmin ? growthStats(user) : null;
   const link = (status: string) => `/commandes${filtersToQuery({ ...filters, status: null }, { statut: status })}`;
 
   return (
@@ -139,6 +143,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         Total sur la période : {data.total} commande(s), dont {data.counts.annulee} annulée(s). Frais de livraison des commandes livrées :{" "}
         {formatMoney(data.fees, country)}.
       </p>
+      {growth ? <GrowthCard totals={growth.totals} weeks={growth.weeks} free={gpSettings(user.companyId).fee === 0} /> : null}
     </>
   );
 }
