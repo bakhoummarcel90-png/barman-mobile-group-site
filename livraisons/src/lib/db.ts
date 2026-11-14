@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_merchants_company ON merchants(company_id);
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL REFERENCES companies(id),
-  role TEXT NOT NULL CHECK (role IN ('admin','merchant','courier')),
+  role TEXT NOT NULL CHECK (role IN ('admin','merchant','courier','gp')),
   name TEXT NOT NULL,
   email TEXT COLLATE NOCASE,
   phone TEXT,
@@ -230,6 +230,62 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+-- GP : voyageurs qui transportent des colis entre pays (ex. Dakar → Paris).
+CREATE TABLE IF NOT EXISTS gp_trips (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  gp_id INTEGER NOT NULL REFERENCES users(id),
+  origin_country TEXT NOT NULL,
+  origin_city TEXT NOT NULL,
+  destination_country TEXT NOT NULL,
+  destination_city TEXT NOT NULL,
+  departure_date TEXT NOT NULL,          -- AAAA-MM-JJ
+  arrival_date TEXT,
+  capacity_grams INTEGER NOT NULL,       -- kilos proposés
+  price_per_kg INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'XOF',
+  dropoff_place TEXT,                    -- lieu de dépôt des colis
+  deadline_date TEXT,                    -- dernier jour de dépôt
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert','complet','annule')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gp_trips_company ON gp_trips(company_id, status, departure_date);
+CREATE INDEX IF NOT EXISTS idx_gp_trips_gp ON gp_trips(gp_id);
+
+-- Réservations de kilos sur un voyage GP. Le contact du GP n'est donné
+-- qu'après confirmation (par l'administrateur) du paiement des frais.
+CREATE TABLE IF NOT EXISTS gp_bookings (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  reference TEXT NOT NULL UNIQUE,
+  trip_id INTEGER NOT NULL REFERENCES gp_trips(id),
+  sender_id INTEGER NOT NULL REFERENCES users(id),
+  weight_grams INTEGER NOT NULL,
+  description TEXT NOT NULL,
+  recipient_name TEXT NOT NULL,
+  recipient_phone TEXT NOT NULL,
+  recipient_city TEXT,
+  fee INTEGER NOT NULL,                  -- frais de mise en relation (figés à la réservation)
+  payment_method TEXT,
+  payment_reference TEXT,
+  payment_declared_at TEXT,
+  status TEXT NOT NULL DEFAULT 'a_payer'
+    CHECK (status IN ('a_payer','a_verifier','confirmee','livree','annulee')),
+  admin_note TEXT,
+  confirmed_by INTEGER REFERENCES users(id),
+  confirmed_at TEXT,
+  delivered_at TEXT,
+  rating INTEGER,
+  rating_comment TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gp_bookings_trip ON gp_bookings(trip_id, status);
+CREATE INDEX IF NOT EXISTS idx_gp_bookings_sender ON gp_bookings(sender_id);
+CREATE INDEX IF NOT EXISTS idx_gp_bookings_status ON gp_bookings(company_id, status);
+
 -- Journal : changements de statut, encaissements, modifications, gestion des comptes.
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
@@ -312,6 +368,9 @@ function migrate(db: DatabaseSync): void {
     ["deliveries", "rating_comment", "TEXT"],
     ["deliveries", "rated_at", "TEXT"],
     ["deliveries", "signature", "TEXT"],
+    // GP : frais de mise en relation et instructions de paiement (Wave / Orange Money).
+    ["companies", "gp_fee", "INTEGER NOT NULL DEFAULT 1000"],
+    ["companies", "gp_payment_info", "TEXT"],
   ];
   for (const [table, column, ddl] of add) {
     if (!columns(table).has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
@@ -322,6 +381,39 @@ function migrate(db: DatabaseSync): void {
   }
   if (!columns("deliveries").has("shipment_id")) {
     db.exec("ALTER TABLE deliveries ADD COLUMN shipment_id INTEGER REFERENCES shipments(id)");
+  }
+  allowGpRole(db);
+}
+
+/**
+ * Ajoute le rôle « gp » à la contrainte de la table users. SQLite ne sait pas
+ * modifier une contrainte : on recrée la table (procédure officielle, clés
+ * étrangères suspendues le temps de la copie ; identifiants conservés).
+ */
+function allowGpRole(db: DatabaseSync): void {
+  const def = (db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined)?.sql;
+  if (!def || def.includes("'gp'")) return;
+  const cols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[]).map((c) => c.name).join(", ");
+  db.exec("PRAGMA foreign_keys = OFF");
+  try {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(def.replace(/CREATE TABLE "?users"?/, "CREATE TABLE users_new").replace("('admin','merchant','courier')", "('admin','merchant','courier','gp')"));
+      db.exec(`INSERT INTO users_new (${cols}) SELECT ${cols} FROM users`);
+      db.exec("DROP TABLE users");
+      db.exec("ALTER TABLE users_new RENAME TO users");
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_users_company_role ON users(company_id, role);`);
+      const broken = db.prepare("PRAGMA foreign_key_check").all();
+      if (broken.length) throw new Error(`Migration users : ${broken.length} référence(s) invalide(s)`);
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
   }
 }
 

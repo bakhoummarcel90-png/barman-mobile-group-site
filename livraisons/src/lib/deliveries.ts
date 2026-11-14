@@ -338,7 +338,7 @@ function referenceTaken(companyId: number, reference: string, exceptId = 0): boo
 }
 
 export function createDelivery(actor: Actor, input: DeliveryInput): number {
-  if (actor.role === "courier") throw new UserError("Un livreur ne peut pas créer de commande.");
+  if (actor.role !== "admin" && actor.role !== "merchant") throw new UserError(actor.role === "courier" ? "Un livreur ne peut pas créer de commande." : "Action non autorisée pour ce compte.");
   const country = getCountry(actor.countryCode);
   return transaction(() => {
     const merchantId =

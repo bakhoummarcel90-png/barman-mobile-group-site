@@ -78,8 +78,14 @@ export function notifyAdmins(companyId: number, n: { title: string; body: string
   ).catch((err) => console.error("Notifications push", err));
 }
 
+/** Notifie une personne précise (application + push). */
+export function notifyUser(companyId: number, userId: number, n: { title: string; body: string; url: string }): void {
+  run("INSERT INTO notifications (company_id, user_id, title, body, url, created_at) VALUES (?, ?, ?, ?, ?, ?)", companyId, userId, n.title, n.body, n.url, new Date().toISOString());
+  void sendPush([userId], n).catch((err) => console.error("Notifications push", err));
+}
+
 export function unreadCount(actor: Actor): number {
-  if (actor.role !== "admin") return 0;
+  if (actor.role !== "admin" && actor.role !== "gp") return 0;
   return get<{ n: number }>("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", actor.id)!.n;
 }
 

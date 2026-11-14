@@ -81,7 +81,7 @@ export interface ShipmentEventView {
 
 /** Admin : toute l'entreprise ; commerçant : ses colis ; livreur : aucun. */
 function scope(actor: Actor, alias = "s"): { sql: string; params: SqlValue[] } {
-  if (actor.role === "courier") return { sql: "0", params: [] };
+  if (actor.role !== "admin" && actor.role !== "merchant") return { sql: "0", params: [] };
   if (actor.role === "merchant") return { sql: `${alias}.company_id = ? AND ${alias}.merchant_id = ?`, params: [actor.companyId, actor.merchantId ?? -1] };
   return { sql: `${alias}.company_id = ?`, params: [actor.companyId] };
 }
@@ -406,7 +406,7 @@ function assertMerchant(actor: Actor, merchantId: number | null) {
 }
 
 export function createShipment(actor: Actor, input: ShipmentInput): number {
-  if (actor.role === "courier") throw new UserError("Action non autorisée.");
+  if (actor.role !== "admin" && actor.role !== "merchant") throw new UserError("Action non autorisée.");
   const merchantId = actor.role === "merchant" ? actor.merchantId : input.merchantId;
   return transaction(() => {
     assertMerchant(actor, merchantId);

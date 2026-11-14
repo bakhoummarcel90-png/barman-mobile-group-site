@@ -48,7 +48,7 @@ function commonFields(fd: FormData, country: CountryConfig, errors: FieldErrors,
   return { phone, email, password };
 }
 
-export type SignupKind = "commercant" | "particulier" | "livreur";
+export type SignupKind = "commercant" | "particulier" | "livreur" | "gp";
 
 export interface MerchantSignup {
   kind: "commercant" | "particulier";
@@ -164,6 +164,52 @@ export function parseCourierSignup(fd: FormData, country: CountryConfig, emailRe
   return { data: { name, phone: phone!, email, vehicle, zone: optional(fd, "zone"), password }, errors };
 }
 
+export interface GpSignup {
+  name: string;
+  phone: string;
+  email: string | null;
+  /** Trajets habituels (ex. « Dakar ↔ Paris »), affichés à l'administrateur. */
+  routes: string | null;
+  password: string;
+}
+
+export function parseGpSignup(fd: FormData, country: CountryConfig, emailRequired = false): { data: GpSignup | null; errors: FieldErrors } {
+  const errors: FieldErrors = {};
+  const name = str(fd, "contact_name");
+  if (name.length < 2) errors.contact_name = "Indiquez votre nom complet (comme sur votre pièce d'identité).";
+  const routes = optional(fd, "zone");
+  if (routes && routes.length > 120) errors.zone = "120 caractères au maximum.";
+  const { phone, email, password } = commonFields(fd, country, errors, emailRequired);
+  if (Object.keys(errors).length) return { data: null, errors };
+  return { data: { name, phone: phone!, email, routes, password }, errors };
+}
+
+/**
+ * Crée un GP (voyageur) : comme un livreur, il attend la validation de
+ * l'administrateur avant de pouvoir se connecter et publier des voyages.
+ */
+export function registerGp(companyId: number, input: GpSignup, verify = false): number {
+  return transaction(() => {
+    purgeUnverified(input.email, input.phone);
+    assertLoginAvailable(input.email, input.phone);
+    const id = run(
+      `INSERT INTO users (company_id, role, name, email, phone, password_hash, zone, active, pending, notes, email_verified)
+       VALUES (?, 'gp', ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+      companyId,
+      input.name,
+      input.email,
+      input.phone,
+      hashPassword(input.password),
+      input.routes,
+      verify ? 0 : 1,
+      "Inscrit lui-même",
+      verify ? 0 : 1,
+    ).id;
+    if (!verify) completeSignup(id);
+    return id;
+  });
+}
+
 /**
  * Crée un livreur. verify = true : e-mail à confirmer d'abord ; ensuite (ou
  * tout de suite sans vérification) il passe EN ATTENTE de validation par
@@ -197,12 +243,22 @@ export function registerCourier(companyId: number, input: CourierSignup, verify 
  * commerçant actif et « à vérifier », livreur en attente de validation ;
  * journal et notification des administrateurs. Renvoie le rôle.
  */
-export function completeSignup(userId: number): "merchant" | "courier" {
+export function completeSignup(userId: number): "merchant" | "courier" | "gp" {
   const u = get<{ id: number; company_id: number; role: string; name: string; merchant_id: number | null; vehicle: string | null }>(
     "SELECT id, company_id, role, name, merchant_id, vehicle FROM users WHERE id = ?",
     userId,
   );
   if (!u) throw new UserError("Inscription introuvable.");
+  if (u.role === "gp") {
+    run("UPDATE users SET pending = 1, email_verified = 1 WHERE id = ?", u.id);
+    logEvent({ companyId: u.company_id, userId: u.id, subjectUserId: u.id, kind: "account", message: `GP ${u.name} inscrit, en attente de validation` });
+    notifyAdmins(u.company_id, {
+      title: "Nouveau GP à valider",
+      body: `${u.name} veut publier ses voyages. Vérifiez son identité avant de l'accepter.`,
+      url: "/gp#gp-a-valider",
+    });
+    return "gp";
+  }
   if (u.role === "courier") {
     run("UPDATE users SET pending = 1, email_verified = 1 WHERE id = ?", u.id);
     logEvent({ companyId: u.company_id, userId: u.id, subjectUserId: u.id, kind: "account", message: `Livreur ${u.name} inscrit, en attente de validation` });
@@ -238,32 +294,40 @@ function requireAdmin(actor: Actor) {
   if (actor.role !== "admin") throw new UserError("Action réservée à l'administrateur.");
 }
 
+type Applicant = "courier" | "gp";
+const APPLICANT_LABEL: Record<Applicant, string> = { courier: "livreur", gp: "GP" };
+
 export function pendingCouriers(actor: Actor): UserRow[] {
-  if (actor.role !== "admin") return [];
-  return all<UserRow>("SELECT * FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1 ORDER BY id", actor.companyId);
+  return pendingApplicants(actor, "courier");
 }
 
-function pendingCourier(actor: Actor, userId: number): UserRow {
-  const u = get<UserRow>("SELECT * FROM users WHERE id = ? AND company_id = ? AND role = 'courier' AND pending = 1", userId, actor.companyId);
+/** Inscriptions de livreurs ou de GP en attente de validation. */
+export function pendingApplicants(actor: Actor, role: Applicant): UserRow[] {
+  if (actor.role !== "admin") return [];
+  return all<UserRow>("SELECT * FROM users WHERE company_id = ? AND role = ? AND pending = 1 ORDER BY id", actor.companyId, role);
+}
+
+function pendingApplicant(actor: Actor, userId: number, role: Applicant): UserRow {
+  const u = get<UserRow>("SELECT * FROM users WHERE id = ? AND company_id = ? AND role = ? AND pending = 1", userId, actor.companyId, role);
   if (!u) throw new UserError("Inscription introuvable ou déjà traitée.");
   return u;
 }
 
-export function approveCourier(actor: Actor, userId: number): string {
+export function approveCourier(actor: Actor, userId: number, role: Applicant = "courier"): string {
   requireAdmin(actor);
   return transaction(() => {
-    const u = pendingCourier(actor, userId);
+    const u = pendingApplicant(actor, userId, role);
     run("UPDATE users SET active = 1, pending = 0, updated_at = ? WHERE id = ?", new Date().toISOString(), userId);
-    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: userId, kind: "account", message: `Inscription du livreur ${u.name} acceptée` });
+    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: userId, kind: "account", message: `Inscription du ${APPLICANT_LABEL[role]} ${u.name} acceptée` });
     return u.name;
   });
 }
 
 /** Refus : le compte est anonymisé et reste inactif (aucune donnée personnelle conservée). */
-export function rejectCourier(actor: Actor, userId: number): string {
+export function rejectCourier(actor: Actor, userId: number, role: Applicant = "courier"): string {
   requireAdmin(actor);
   return transaction(() => {
-    const u = pendingCourier(actor, userId);
+    const u = pendingApplicant(actor, userId, role);
     run(
       `UPDATE users SET name = 'Inscription refusée', email = NULL, phone = NULL, vehicle = NULL, zone = NULL,
          active = 0, pending = 0, updated_at = ? WHERE id = ?`,
@@ -271,7 +335,7 @@ export function rejectCourier(actor: Actor, userId: number): string {
       userId,
     );
     revokeSessionsFor(userId);
-    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: userId, kind: "account", message: `Inscription de livreur refusée (${u.name})` });
+    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: userId, kind: "account", message: `Inscription de ${APPLICANT_LABEL[role]} refusée (${u.name})` });
     return u.name;
   });
 }

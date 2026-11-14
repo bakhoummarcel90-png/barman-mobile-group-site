@@ -1,13 +1,13 @@
 import { AppNav } from "@/components/AppNav";
 import { requireUser } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/constants";
+import { ROLE_LABELS, ROLES } from "@/lib/constants";
 import { unreadCount } from "@/lib/notifications";
 import { logoutAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
+  const user = await requireUser([...ROLES]);
   return (
     <div className="min-h-screen">
       <AppNav role={user.role} userName={user.name} roleLabel={ROLE_LABELS[user.role]} companyName={user.companyName} logout={logoutAction} unread={unreadCount(user)} />

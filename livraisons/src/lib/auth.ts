@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import type { Role } from "./constants";
+import { STAFF_ROLES, type Role } from "./constants";
 import { get, run } from "./db";
 import type { Actor } from "./types";
 
@@ -81,11 +81,14 @@ export const getCurrentUser = cache(async (): Promise<Actor | null> => {
   };
 });
 
-/** Exige une session (et éventuellement un rôle) ; sinon redirige. */
-export async function requireUser(roles?: Role[]): Promise<Actor> {
+/**
+ * Exige une session et l'un des rôles donnés ; sinon redirige.
+ * Sans liste : rôles de la gestion des livraisons (le GP n'y a pas accès).
+ */
+export async function requireUser(roles: Role[] = STAFF_ROLES): Promise<Actor> {
   const user = await getCurrentUser();
   if (!user) redirect("/connexion");
-  if (roles && !roles.includes(user.role)) redirect("/");
+  if (!roles.includes(user.role)) redirect(user.role === "gp" ? "/gp" : "/");
   return user;
 }
 

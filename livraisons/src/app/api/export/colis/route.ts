@@ -9,7 +9,7 @@ import { DIRECTION_LABELS, directionOf, listShipments, parseShipmentFilters } fr
 /** Export CSV des colis internationaux (mêmes filtres et même périmètre que la page Colis). */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user || user.role === "courier") return new Response("Accès refusé", { status: 403 });
+  if (!user || (user.role !== "admin" && user.role !== "merchant")) return new Response("Accès refusé", { status: 403 });
   const country = countryOf(user);
   const f = parseShipmentFilters(Object.fromEntries(new URL(req.url).searchParams));
   const { rows } = listShipments(user, f, { limit: 20000 });

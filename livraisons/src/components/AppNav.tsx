@@ -13,6 +13,8 @@ import {
   LogOut,
   Menu,
   Package,
+  Plane,
+  PlusCircle,
   Settings,
   Store,
   Truck,
@@ -35,6 +37,7 @@ const NAV: Record<Role, Item[]> = {
     { href: "/commandes", label: "Commandes", icon: ClipboardList },
     { href: "/livraisons", label: "Livraisons", icon: Truck },
     { href: "/colis", label: "Colis", icon: Package },
+    { href: "/gp", label: "GP voyageurs", icon: Plane },
     { href: "/encaissements", label: "Encaissements", icon: Banknote },
     { href: "/livreurs", label: "Livreurs", icon: Bike },
     { href: "/commercants", label: "Commerçants", icon: Store },
@@ -44,6 +47,7 @@ const NAV: Record<Role, Item[]> = {
     { href: "/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
     { href: "/commandes", label: "Commandes", icon: ClipboardList },
     { href: "/livraisons", label: "Suivi", icon: Truck },
+    { href: "/gp", label: "Envoi par GP", icon: Plane },
     { href: "/colis", label: "Colis", icon: Package },
     { href: "/encaissements", label: "Paiements", icon: Banknote },
   ],
@@ -53,12 +57,23 @@ const NAV: Record<Role, Item[]> = {
     { href: "/commandes", label: "Historique", icon: ClipboardList },
     { href: "/encaissements", label: "Mon argent", icon: Banknote },
   ],
+  gp: [
+    { href: "/gp", label: "Mes voyages", icon: Plane },
+    { href: "/gp/voyages/nouveau", label: "Nouveau voyage", icon: PlusCircle },
+    { href: "/notifications", label: "Notifications", icon: Bell },
+  ],
 };
+
+function matches(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function isActive(pathname: string, href: string, role?: Role) {
   // Pour le livreur, la fiche d'une course appartient à « Aujourd'hui », pas à l'historique.
   if (role === "courier" && /^\/commandes\/\d+/.test(pathname)) return href === "/livraisons";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (!matches(pathname, href)) return false;
+  // Un lien plus précis du même menu l'emporte (« /gp/voyages/nouveau » plutôt que « /gp »).
+  return !(role ? NAV[role] : []).some((it) => it.href.length > href.length && it.href.startsWith(href) && matches(pathname, it.href));
 }
 
 export function AppNav({
@@ -128,7 +143,7 @@ export function AppNav({
   );
 
   const bell =
-    role === "admin" ? (
+    role === "admin" || role === "gp" ? (
       <Link
         href="/notifications"
         className={cx("relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-slate-100", isActive(pathname, "/notifications") && "bg-brand-50 text-brand-800")}

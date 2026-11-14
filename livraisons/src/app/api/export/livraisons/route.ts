@@ -10,7 +10,7 @@ import { paymentMethodLabel } from "@/lib/regions";
 /** Export CSV des livraisons (mêmes filtres que la page Commandes, même périmètre d'accès). */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user || user.role === "courier") return new Response("Accès refusé", { status: 403 });
+  if (!user || (user.role !== "admin" && user.role !== "merchant")) return new Response("Accès refusé", { status: 403 });
   const country = countryOf(user);
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const filters = parseFilters(sp, country.timezone);

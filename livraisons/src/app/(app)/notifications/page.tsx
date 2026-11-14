@@ -11,7 +11,7 @@ import { listNotifications, pushDeviceCount, unreadCount, vapidKeys } from "@/li
 export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
-  const user = await requireUser(["admin"]);
+  const user = await requireUser(["admin", "gp"]);
   const country = countryOf(user);
   const items = listNotifications(user, 60);
   const unread = unreadCount(user);

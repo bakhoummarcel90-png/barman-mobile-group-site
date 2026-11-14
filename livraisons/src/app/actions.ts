@@ -11,10 +11,12 @@ import {
   recordLoginFailure,
   requireUser,
 } from "@/lib/auth";
-import { isDeliveryStatus, isPaymentStatus, isShipmentStatus } from "@/lib/constants";
+import { isDeliveryStatus, isPaymentStatus, isShipmentStatus, ROLES } from "@/lib/constants";
 import * as deliveries from "@/lib/deliveries";
+import * as gp from "@/lib/gp";
+import { countryOf } from "@/lib/company";
 import { recordCourierRemittance, recordMerchantPayout } from "@/lib/finance";
-import { formatMoney, normalizePhone, parseAmount } from "@/lib/format";
+import { formatMoney, normalizePhone, parseAmount, todayLocal } from "@/lib/format";
 import { verifyPassword } from "@/lib/password";
 import * as people from "@/lib/people";
 import * as shipments from "@/lib/shipments";
@@ -83,14 +85,16 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (user.pending)
     return {
       ok: false,
-      message: "Votre inscription de livreur est en attente de validation par l'entreprise de livraison. Vous pourrez vous connecter dès qu'elle sera acceptée.",
+      message: `Votre inscription de ${user.role === "gp" ? "GP" : "livreur"} est en attente de validation par l'entreprise de livraison. Vous pourrez vous connecter dès qu'elle sera acceptée.`,
       values: { identifier },
     };
   if (!user.active || (user.role === "merchant" && !user.merchant_active))
     return { ok: false, message: "Ce compte est désactivé. Contactez l'administrateur de votre entreprise de livraison.", values: { identifier } };
   clearLoginFailures(key);
   await createSession(user.id);
-  redirect(user.role === "courier" ? "/livraisons" : "/tableau-de-bord");
+  const next = str(fd, "suite");
+  if (/^\/[a-z]/i.test(next) && !next.startsWith("//") && next.length < 200) redirect(next);
+  redirect(user.role === "courier" ? "/livraisons" : user.role === "gp" ? "/gp" : "/tableau-de-bord");
 }
 
 /** Première installation : entreprise + premier administrateur (uniquement si aucun compte n'existe). */
@@ -353,7 +357,7 @@ export async function resetPasswordAction(_: FormState, fd: FormData): Promise<F
 }
 
 export async function changePasswordAction(_: FormState, fd: FormData): Promise<FormState> {
-  const actor = await requireUser();
+  const actor = await requireUser([...ROLES]);
   const current = String(fd.get("current_password") ?? "");
   const next = String(fd.get("new_password") ?? "");
   const confirm = String(fd.get("confirm_password") ?? "");
@@ -367,7 +371,7 @@ export async function changePasswordAction(_: FormState, fd: FormData): Promise<
 }
 
 export async function deleteAccountAction(_: FormState, fd: FormData): Promise<FormState> {
-  const actor = await requireUser();
+  const actor = await requireUser([...ROLES]);
   if (str(fd, "confirm") !== "SUPPRIMER") return { ok: false, errors: { confirm: "Tapez SUPPRIMER en majuscules pour confirmer." }, message: "Confirmation manquante." };
   try {
     people.deleteOwnAccount(actor, String(fd.get("password") ?? ""));
@@ -472,7 +476,12 @@ export async function signupAction(_: FormState, fd: FormData): Promise<FormStat
   const country = signup.getCountry(company.country_code);
   const verify = mailConfigured();
   const kind = str(fd, "kind");
-  const parsed = kind === "livreur" ? signup.parseCourierSignup(fd, country, verify) : signup.parseMerchantSignup(fd, country, verify);
+  const parsed =
+    kind === "livreur"
+      ? signup.parseCourierSignup(fd, country, verify)
+      : kind === "gp"
+        ? signup.parseGpSignup(fd, country, verify)
+        : signup.parseMerchantSignup(fd, country, verify);
   if (!parsed.data) return invalid(parsed.errors, fd);
   if (!(await signupAllowed())) return { ok: false, message: "Trop d'inscriptions depuis cette connexion. Réessayez dans une heure.", values: formValues(fd) };
   let userId: number;
@@ -481,13 +490,16 @@ export async function signupAction(_: FormState, fd: FormData): Promise<FormStat
     userId =
       kind === "livreur"
         ? signup.registerCourier(company.id, parsed.data as signup.CourierSignup, verify)
-        : signup.registerMerchant(company.id, parsed.data as signup.MerchantSignup, verify);
+        : kind === "gp"
+          ? signup.registerGp(company.id, parsed.data as signup.GpSignup, verify)
+          : signup.registerMerchant(company.id, parsed.data as signup.MerchantSignup, verify);
     if (verify) token = await verification.startVerification(userId);
   } catch (err) {
     return failure(err, fd);
   }
   if (token) redirect(`/inscription/verifier/${token}`);
   if (kind === "livreur") redirect("/inscription/merci");
+  if (kind === "gp") redirect("/inscription/merci?type=gp");
   await createSession(userId);
   redirect("/tableau-de-bord?bienvenue=1");
 }
@@ -495,7 +507,7 @@ export async function signupAction(_: FormState, fd: FormData): Promise<FormStat
 /** Saisie du code reçu par e-mail : finalise l'inscription. */
 export async function verifyCodeAction(_: FormState, fd: FormData): Promise<FormState> {
   const token = str(fd, "token");
-  let role: "merchant" | "courier";
+  let role: "merchant" | "courier" | "gp";
   let userId: number;
   try {
     userId = verification.checkCode(token, str(fd, "code"));
@@ -504,6 +516,7 @@ export async function verifyCodeAction(_: FormState, fd: FormData): Promise<Form
     return failure(err);
   }
   if (role === "courier") redirect("/inscription/merci?verifie=1");
+  if (role === "gp") redirect("/inscription/merci?verifie=1&type=gp");
   await createSession(userId);
   redirect("/tableau-de-bord?bienvenue=1");
 }
@@ -559,13 +572,13 @@ export async function verifyMerchantAction(_: FormState, fd: FormData): Promise<
 }
 
 export async function markAllReadAction(): Promise<void> {
-  const actor = await requireUser(["admin"]);
+  const actor = await requireUser(["admin", "gp"]);
   notifications.markAllRead(actor);
   refresh();
 }
 
 export async function savePushSubscriptionAction(sub: { endpoint: string; p256dh: string; auth: string }): Promise<FormState> {
-  const actor = await requireUser(["admin"]);
+  const actor = await requireUser(["admin", "gp"]);
   try {
     notifications.savePushSubscription(actor, sub);
     await notifications.sendTestPush(actor);
@@ -577,7 +590,7 @@ export async function savePushSubscriptionAction(sub: { endpoint: string; p256dh
 }
 
 export async function deletePushSubscriptionAction(endpoint: string): Promise<FormState> {
-  const actor = await requireUser(["admin"]);
+  const actor = await requireUser(["admin", "gp"]);
   notifications.deletePushSubscription(actor, endpoint);
   refresh();
   return { ok: true, message: "Notifications désactivées sur cet appareil." };
@@ -640,4 +653,123 @@ export async function dispatchSettingsAction(_: FormState, fd: FormData): Promis
   run("UPDATE companies SET dispatch_mode = ?, tariffs = ? WHERE id = ?", mode, JSON.stringify(tariffs), actor.companyId);
   refresh();
   return { ok: true, message: "Réglages enregistrés." };
+}
+
+/* ------------------------------------------------------------------ */
+/* GP : voyages et réservations de kilos                                */
+/* ------------------------------------------------------------------ */
+
+export async function saveTripAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["gp", "admin"]);
+  const parsed = gp.parseTripForm(fd, todayLocal(countryOf(actor).timezone));
+  if (!parsed.data) return invalid(parsed.errors, fd);
+  const existing = Number(str(fd, "id")) || 0;
+  let id: number;
+  try {
+    if (existing) {
+      gp.updateTrip(actor, existing, parsed.data);
+      id = existing;
+    } else id = gp.createTrip(actor, parsed.data);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/voyages/${id}?ok=${existing ? "modifie" : "publie"}`);
+}
+
+export async function tripStatusAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["gp", "admin"]);
+  const status = str(fd, "status");
+  if (!(gp.TRIP_STATUSES as readonly string[]).includes(status)) return { ok: false, message: "Statut invalide." };
+  const id = Number(str(fd, "id"));
+  try {
+    gp.setTripStatus(actor, id, status as gp.TripStatus);
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  return { ok: true, message: status === "annule" ? "Voyage annulé." : status === "complet" ? "Voyage marqué complet : il n'apparaît plus dans les recherches." : "Voyage rouvert aux réservations." };
+}
+
+export async function bookTripAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["merchant"]);
+  const parsed = gp.parseBookingForm(fd, actor.countryCode);
+  if (!parsed.data) return invalid(parsed.errors, fd);
+  let id: number;
+  try {
+    id = gp.createBooking(actor, idFrom(fd, "trip_id"), parsed.data);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=reservee`);
+}
+
+export async function declarePaymentAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["merchant"]);
+  const id = idFrom(fd);
+  try {
+    gp.declarePayment(actor, id, str(fd, "payment_method"), str(fd, "payment_reference"));
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=paiement`);
+}
+
+export async function bookingDecisionAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const decision = str(fd, "decision");
+  const id = idFrom(fd);
+  try {
+    if (decision === "confirmer") gp.confirmBooking(actor, id);
+    else gp.rejectPayment(actor, id, str(fd, "admin_note"));
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  // La réservation quitte la liste « à vérifier » : confirmation en bandeau.
+  const code = decision === "confirmer" ? "paiement-confirme" : "paiement-refuse";
+  redirect(str(fd, "from") === "liste" ? `/gp?ok=${code}` : `/gp/reservations/${id}?ok=${code}`);
+}
+
+export async function bookingUpdateAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["merchant", "gp", "admin"]);
+  const id = idFrom(fd);
+  const what = str(fd, "what");
+  try {
+    if (what === "annuler") gp.cancelBooking(actor, id);
+    else if (what === "livree") gp.markBookingDelivered(actor, id);
+    else if (what === "noter") gp.rateBooking(actor, id, Number(str(fd, "rating")), optional(fd, "comment"));
+    else throw new UserError("Action inconnue.");
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=${what}`);
+}
+
+export async function gpApplicationAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const decision = str(fd, "decision");
+  try {
+    if (decision === "accepter") signup.approveCourier(actor, idFrom(fd, "user_id"), "gp");
+    else signup.rejectCourier(actor, idFrom(fd, "user_id"), "gp");
+  } catch (err) {
+    return failure(err);
+  }
+  refresh();
+  redirect(`/gp?ok=${decision === "accepter" ? "gp-accepte" : "gp-refuse"}`);
+}
+
+export async function gpSettingsAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  try {
+    const { errors } = gp.saveGpSettings(actor, fd);
+    if (Object.keys(errors).length) return invalid(errors, fd);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  return { ok: true, message: "Réglages GP enregistrés." };
 }

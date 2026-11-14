@@ -12,7 +12,8 @@ export type EventKind =
   | "note"
   | "photo"
   | "settlement"
-  | "account";
+  | "account"
+  | "gp";
 
 export function logEvent(e: {
   companyId: number;

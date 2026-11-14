@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { Bike, Store, User } from "lucide-react";
+import { Bike, Plane, Store, User } from "lucide-react";
 import { signupAction } from "../actions";
 import { Field, FormMessage, inputProps, SubmitButton, useFormKey } from "@/components/forms";
 import { cx } from "@/components/ui";
@@ -11,6 +11,7 @@ const KINDS = [
   { value: "commercant", label: "Commerçant", hint: "Boutique en ligne, vendeur", icon: Store },
   { value: "particulier", label: "Particulier", hint: "Envoyer ou recevoir un colis", icon: User },
   { value: "livreur", label: "Livreur", hint: "Effectuer des livraisons", icon: Bike },
+  { value: "gp", label: "GP", hint: "Je voyage et transporte des colis", icon: Plane },
 ] as const;
 
 export function SignupForm({
@@ -18,16 +19,19 @@ export function SignupForm({
   neighborhoods,
   vehicles,
   emailRequired,
+  initialKind,
 }: {
   phoneExample: string;
   neighborhoods: string[];
   vehicles: string[];
   /** Vérification par e-mail configurée : e-mail obligatoire, code envoyé. */
   emailRequired: boolean;
+  /** Type de compte présélectionné (ex. « gp » depuis la page des voyages). */
+  initialKind?: string;
 }) {
   const [state, action] = useActionState(signupAction, {});
   const formKey = useFormKey(state);
-  const [kind, setKind] = useState<string>(state.values?.kind ?? "commercant");
+  const [kind, setKind] = useState<string>(state.values?.kind ?? initialKind ?? "commercant");
   const p = (n: string) => inputProps(n, state);
   const e = (n: string) => state.errors?.[n];
 
@@ -36,7 +40,7 @@ export function SignupForm({
       <FormMessage state={state} />
       <fieldset>
         <legend className="label">Je suis…</legend>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {KINDS.map((k) => (
             <label
               key={k.value}
@@ -58,6 +62,11 @@ export function SignupForm({
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Votre inscription sera examinée par l'entreprise de livraison. Vous pourrez vous connecter dès qu'elle sera acceptée.
         </p>
+      ) : kind === "gp" ? (
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Vous voyagez entre le Sénégal et d'autres pays et transportez des colis ? Inscrivez-vous : après vérification de votre identité, vous pourrez
+          publier vos voyages et recevoir des réservations. Inscription gratuite.
+        </p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -66,7 +75,7 @@ export function SignupForm({
             <input {...p("shop_name")} placeholder="ex. Boutique Awa Mode" autoComplete="organization" />
           </Field>
         ) : null}
-        <Field label={kind === "commercant" ? "Votre nom (responsable)" : "Nom complet"} name="contact_name" error={e("contact_name")} required>
+        <Field label={kind === "commercant" ? "Votre nom (responsable)" : kind === "gp" ? "Nom complet (comme sur votre pièce d'identité)" : "Nom complet"} name="contact_name" error={e("contact_name")} required>
           <input {...p("contact_name")} autoComplete="name" />
         </Field>
         <Field label="Téléphone" name="phone" error={e("phone")} hint="Sert à vous connecter." required>
@@ -81,7 +90,11 @@ export function SignupForm({
         >
           <input {...p("email")} type="email" inputMode="email" autoComplete="email" />
         </Field>
-        {kind === "livreur" ? (
+        {kind === "gp" ? (
+          <Field label="Trajets habituels" name="zone" error={e("zone")} hint="Aide l'entreprise à valider votre inscription.">
+            <input {...p("zone")} placeholder="ex. Dakar ↔ Paris, Dakar ↔ Milan" maxLength={120} />
+          </Field>
+        ) : kind === "livreur" ? (
           <>
             <Field label="Moyen de transport" name="vehicle" error={e("vehicle")}>
               <select {...p("vehicle")}>
@@ -133,7 +146,7 @@ export function SignupForm({
       {e("accept") ? <p className="-mt-2 text-sm font-medium text-red-700">{e("accept")}</p> : null}
 
       <SubmitButton className="btn-primary btn-lg w-full" pendingLabel="Création du compte…">
-        {emailRequired ? "Recevoir mon code par e-mail" : kind === "livreur" ? "Envoyer ma demande" : "Créer mon compte"}
+        {emailRequired ? "Recevoir mon code par e-mail" : kind === "livreur" || kind === "gp" ? "Envoyer ma demande" : "Créer mon compte"}
       </SubmitButton>
       <p className="text-center text-sm text-ink-muted">
         Déjà un compte ?{" "}
