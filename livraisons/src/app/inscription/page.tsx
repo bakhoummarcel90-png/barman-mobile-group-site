@@ -8,6 +8,8 @@ import { VEHICLES } from "@/lib/people";
 import { getCountry } from "@/lib/regions";
 import { signupCompany } from "@/lib/signup";
 import { SignupForm } from "./SignupForm";
+import { LaunchBanner } from "@/components/Growth";
+import { gpSettings } from "@/lib/gp";
 
 export const metadata: Metadata = { title: "Créer un compte" };
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
           <h1 className="text-2xl font-bold text-ink">Créer un compte</h1>
           <p className="mt-1 text-sm text-ink-muted">Rejoignez {company.name} : envoyez vos commandes et colis, devenez livreur ou publiez vos voyages de GP.</p>
         </div>
+        {company.signup_open && gpSettings(company.id).fee === 0 ? <LaunchBanner className="mb-4" /> : null}
         <div className="card p-5 sm:p-6">
           {company.signup_open ? (
             <SignupForm phoneExample={country.phoneExample} neighborhoods={country.neighborhoods} vehicles={VEHICLES} emailRequired={mailConfigured()} initialKind={type === "gp" || type === "particulier" || type === "livreur" ? type : undefined} />

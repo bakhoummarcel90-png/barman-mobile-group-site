@@ -13,6 +13,7 @@ const G = await import("../src/lib/gp");
 const S = await import("../src/lib/signup");
 const P = await import("../src/lib/people");
 const D = await import("../src/lib/deliveries");
+const GR = await import("../src/lib/growth");
 const { deliveryScope } = await import("../src/lib/scope");
 type Actor = import("../src/lib/types").Actor;
 
@@ -25,7 +26,7 @@ function actor(id: number, companyId: number, role: Actor["role"], merchantId: n
 let admin: Actor, gp: Actor, gp2: Actor, sender: Actor, sender2: Actor, courier: Actor, adminB: Actor;
 
 before(() => {
-  const a = run("INSERT INTO companies (name, gp_payment_info) VALUES ('A', 'Wave : 70 000 00 00')").id;
+  const a = run("INSERT INTO companies (name, gp_fee, gp_payment_info) VALUES ('A', 1000, 'Wave : 70 000 00 00')").id;
   const b = run("INSERT INTO companies (name) VALUES ('B')").id;
   const h = hashPassword("motdepasse");
   const u = (c: number, role: string, phone: string, merchant: number | null = null) =>
@@ -240,5 +241,27 @@ describe("GP : comptes et accès", () => {
     P.deleteOwnAccount(me, "motdepasse");
     assert.equal(G.getTrip(admin, open)!.status, "annule");
     assert.equal(get<{ name: string }>("SELECT name FROM users WHERE id = ?", id)!.name, "Compte supprimé");
+  });
+});
+
+describe("lancement gratuit et suivi de la croissance", () => {
+  test("frais à 0 par défaut pour une nouvelle entreprise", () => {
+    const c = run("INSERT INTO companies (name) VALUES ('Nouvelle')").id;
+    assert.equal(G.gpSettings(c).fee, 0);
+  });
+  test("lundi de la semaine", () => {
+    assert.equal(GR.mondayOf("2026-11-14"), "2026-11-09"); // samedi
+    assert.equal(GR.mondayOf("2026-11-09"), "2026-11-09"); // lundi
+    assert.equal(GR.mondayOf("2026-11-15"), "2026-11-09"); // dimanche
+  });
+  test("statistiques réservées à l'administrateur, semaine en cours en premier", () => {
+    assert.equal(GR.growthStats(sender), null);
+    const s = GR.growthStats(admin)!;
+    assert.equal(s.weeks.length, 8);
+    assert.equal(s.weeks[0].start, GR.mondayOf(today));
+    assert.ok(s.weeks[0].gpBookings > 0, "réservations de la semaine comptées");
+    assert.ok(s.weeks[0].signups >= 6, "inscriptions de la semaine comptées (hors administrateurs)");
+    assert.ok(s.totals.gps >= 2);
+    assert.equal(GR.growthStats(adminB)!.totals.gpBookings, 0, "isolation entre entreprises");
   });
 });

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BadgeCheck, Banknote, Plane, PlusCircle, Search, UserCheck } from "lucide-react";
 import { BookingBadge, formatDay, TripBadge, TripCard } from "@/components/GpTripCard";
 import { GpApplication, GpSettingsForm, PaymentDecision } from "@/components/GpForms";
+import { LaunchBanner } from "@/components/Growth";
 import { Card, EmptyState, OkBanner, PageHeader, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
@@ -95,6 +96,7 @@ function SenderHome({ user, params }: { user: Actor; params: Params }) {
         title="Envoyer un colis par GP"
         description={`Trouvez un voyageur qui part vers le pays de votre destinataire et réservez des kilos.${fee ? ` Frais de mise en relation : ${formatMoney(fee, country)} par réservation.` : ""}`}
       />
+      {fee === 0 ? <LaunchBanner className="mb-5" /> : null}
       {bookings.length ? (
         <Card title="Mes réservations" className="mb-5">
           <ul className="divide-y divide-slate-100">
