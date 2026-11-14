@@ -4,14 +4,14 @@ import { Card } from "./ui";
 
 const WEEK_FMT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
 
-/** Bandeau affiché quand les frais de mise en relation sont à 0. */
+/** Bandeau affiché quand les frais de mise en relation sont à 0 (sans mention de durée, choix de l'éditeur). */
 export function LaunchBanner({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 ${className}`} role="status">
       <Gift className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" aria-hidden />
       <p className="text-sm">
-        <span className="block text-base font-bold">Gratuit pendant le lancement</span>
-        Aucun frais de mise en relation : réservez un GP et recevez son contact tout de suite. Profitez-en !
+        <span className="block text-base font-bold">C'est gratuit</span>
+        Aucun frais de mise en relation : réservez un GP et recevez son contact tout de suite.
       </p>
     </div>
   );

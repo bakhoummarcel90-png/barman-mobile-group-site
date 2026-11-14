@@ -201,7 +201,7 @@ Les « GP » transportent des colis dans leurs bagages entre le Sénégal et l'�
    réserve des kilos et accepte la liste des objets interdits. Le voyage passe « complet »
    quand tous les kilos sont réservés.
 4. **Frais de mise en relation** (réglables dans `/gp` → Réglages GP ; **0 par défaut = période
-   de lancement gratuite** : bandeau « Gratuit pendant le lancement » sur `/voyages`, `/gp` et
+   de lancement gratuite** : bandeau « C'est gratuit » (sans mention de durée) sur `/voyages`, `/gp` et
    l'inscription, réservations confirmées tout de suite) : l'expéditeur les envoie par Wave / Orange Money au numéro indiqué, puis
    déclare le moyen et la référence du transfert. **Aucun paiement n'est encaissé par
    l'application** : l'administrateur vérifie et confirme (ou signale « paiement non trouvé »).
