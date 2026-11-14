@@ -53,7 +53,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
         description={`${b.origin_city} (${shippingCountryName(b.origin_country)}) → ${b.destination_city} (${shippingCountryName(b.destination_country)}) · départ ${formatDay(b.departure_date)}`}
         back={isAdmin ? { href: "/gp", label: "GP voyageurs" } : isGp ? { href: `/gp/voyages/${b.trip_id}`, label: "Mon voyage" } : { href: "/gp", label: "Envoi par GP" }}
       />
-      <OkBanner code={ok} messages={OK} />
+      <OkBanner code={ok} messages={b.status === "confirmee" ? { ...OK, reservee: "Réservation confirmée : contactez votre GP pour lui déposer le colis." } : OK} />
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-5">
           {b.status === "annulee" ? <Alert tone="warning">Cette réservation est annulée.</Alert> : null}
