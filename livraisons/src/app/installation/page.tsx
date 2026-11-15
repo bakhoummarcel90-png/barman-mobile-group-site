@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Truck } from "lucide-react";
 import { countryOptions } from "@/lib/regions";
-import { needsSetup, setupCodeRequired } from "@/lib/setup";
+import { needsSetup, setupBlocked, setupCodeRequired } from "@/lib/setup";
 import { SetupForm } from "./SetupForm";
 
 export const metadata: Metadata = { title: "Installation" };
@@ -23,7 +23,17 @@ export default function SetupPage() {
           </p>
         </div>
         <div className="card p-5 sm:p-6">
-          <SetupForm codeRequired={setupCodeRequired()} countries={countryOptions()} />
+          {setupBlocked() ? (
+            <div className="text-center">
+              <p className="font-semibold text-ink">Installation protégée</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                Pour des raisons de sécurité, définissez d'abord la variable <code>SETUP_CODE</code> (un code secret de votre choix) chez votre
+                hébergeur, puis rechargez cette page.
+              </p>
+            </div>
+          ) : (
+            <SetupForm codeRequired={setupCodeRequired()} countries={countryOptions()} />
+          )}
         </div>
       </div>
     </main>

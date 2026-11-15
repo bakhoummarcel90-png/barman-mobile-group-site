@@ -101,8 +101,22 @@ export function markAllRead(actor: Actor): void {
   run("UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL", new Date().toISOString(), actor.id);
 }
 
+/** Services de push des navigateurs (Chrome/Android, Firefox, Safari/iPhone, Edge/Windows). */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+
+export function isPushEndpoint(endpoint: string): boolean {
+  if (!/^https:\/\/[^\s]{10,2000}$/.test(endpoint)) return false;
+  try {
+    const host = new URL(endpoint).hostname;
+    return PUSH_HOSTS.some((re) => re.test(host));
+  } catch {
+    return false;
+  }
+}
+
 export function savePushSubscription(actor: Actor, sub: { endpoint: string; p256dh: string; auth: string }): void {
-  if (!/^https:\/\/[^\s]{10,2000}$/.test(sub.endpoint) || !sub.p256dh || !sub.auth || sub.p256dh.length > 200 || sub.auth.length > 100)
+  // Le serveur envoie des requêtes vers cette adresse : on n'accepte que les services de push connus.
+  if (!isPushEndpoint(sub.endpoint) || !sub.p256dh || !sub.auth || sub.p256dh.length > 200 || sub.auth.length > 100)
     throw new Error("Abonnement invalide");
   run(
     `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
