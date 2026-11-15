@@ -325,3 +325,40 @@ describe("garde-fous GP", () => {
     assert.equal(G.listReports(adminB).length, 0, "isolation entre entreprises");
   });
 });
+
+describe("sécurité", () => {
+  test("installation bloquée en production sans SETUP_CODE", async () => {
+    const { setupBlocked } = await import("../src/lib/setup");
+    const env = process.env as Record<string, string | undefined>;
+    const saved = { n: env.NODE_ENV, c: env.SETUP_CODE };
+    try {
+      env.NODE_ENV = "production"; delete env.SETUP_CODE;
+      assert.equal(setupBlocked(), true);
+      env.SETUP_CODE = "un-code-secret";
+      assert.equal(setupBlocked(), false);
+      env.NODE_ENV = "development"; delete env.SETUP_CODE;
+      assert.equal(setupBlocked(), false);
+    } finally {
+      env.NODE_ENV = saved.n; if (saved.c === undefined) delete env.SETUP_CODE; else env.SETUP_CODE = saved.c;
+    }
+  });
+  test("abonnements push : seulement les services des navigateurs", async () => {
+    const { isPushEndpoint } = await import("../src/lib/notifications");
+    assert.equal(isPushEndpoint("https://fcm.googleapis.com/fcm/send/abc123def456"), true);
+    assert.equal(isPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/abc"), true);
+    assert.equal(isPushEndpoint("https://web.push.apple.com/QGx1234567"), true);
+    assert.equal(isPushEndpoint("https://wns2-par02p.notify.windows.com/w/?token=abc"), true);
+    assert.equal(isPushEndpoint("https://evil.example.com/collect?x=1"), false);
+    assert.equal(isPushEndpoint("https://fcm.googleapis.com.evil.com/x123456789"), false);
+    assert.equal(isPushEndpoint("http://fcm.googleapis.com/fcm/send/abc"), false);
+  });
+  test("connexion : blocage après 20 échecs depuis la même adresse", async () => {
+    const { ipLockedFor, recordIpFailure } = await import("../src/lib/ratelimit");
+    const ip = "203.0.113.7";
+    for (let i = 0; i < 19; i++) recordIpFailure(ip);
+    assert.equal(ipLockedFor(ip), 0);
+    recordIpFailure(ip);
+    assert.ok(ipLockedFor(ip) > 0);
+    assert.equal(ipLockedFor("203.0.113.8"), 0, "les autres adresses ne sont pas bloquées");
+  });
+});

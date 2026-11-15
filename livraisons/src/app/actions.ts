@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth";
 import { isDeliveryStatus, isPaymentStatus, isShipmentStatus, ROLES } from "@/lib/constants";
 import * as deliveries from "@/lib/deliveries";
+import { ipLockedFor, recordIpFailure } from "@/lib/ratelimit";
 import * as gp from "@/lib/gp";
 import { countryOf } from "@/lib/company";
 import { recordCourierRemittance, recordMerchantPayout } from "@/lib/finance";
@@ -63,12 +64,16 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (!identifier || !password)
     return { ok: false, message: "Saisissez votre e-mail ou téléphone et votre mot de passe.", values: { identifier } };
   const key = identifier.toLowerCase();
+  const ip = await clientIp();
+  const ipWait = ipLockedFor(ip);
+  if (ipWait) return { ok: false, message: `Trop de tentatives depuis cette connexion. Réessayez dans ${ipWait} minute(s).`, values: { identifier } };
   const wait = loginLockedFor(key);
   if (wait) return { ok: false, message: `Trop de tentatives. Réessayez dans ${wait} minute(s).`, values: { identifier } };
 
   const user = people.findLoginUser(identifier);
   if (!user || !verifyPassword(password, user.password_hash)) {
     recordLoginFailure(key);
+    recordIpFailure(ip);
     return { ok: false, message: "Identifiant ou mot de passe incorrect.", values: { identifier } };
   }
   if (!user.email_verified) {
@@ -458,9 +463,14 @@ export async function shipmentStatusAction(_: FormState, fd: FormData): Promise<
 
 /** Au plus 5 inscriptions par heure et par adresse IP (contre les créations en rafale). */
 const signupAttempts = new Map<string, number[]>();
-async function signupAllowed(): Promise<boolean> {
+/** Adresse IP du visiteur (derrière l'hébergeur : première adresse de X-Forwarded-For). */
+async function clientIp(): Promise<string> {
   const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? h.get("x-real-ip") ?? "local").split(",")[0].trim();
+  return (h.get("x-forwarded-for") ?? h.get("x-real-ip") ?? "local").split(",")[0].trim();
+}
+
+async function signupAllowed(): Promise<boolean> {
+  const ip = await clientIp();
   const now = Date.now();
   const recent = (signupAttempts.get(ip) ?? []).filter((t) => now - t < 3600_000);
   if (recent.length >= 5) return false;

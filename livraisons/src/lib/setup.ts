@@ -20,6 +20,15 @@ export function setupCodeRequired(): boolean {
   return !!process.env.SETUP_CODE;
 }
 
+/**
+ * En production, l'installation est refusée tant que SETUP_CODE n'est pas
+ * défini : sinon, sur une base vide, le premier visiteur deviendrait
+ * administrateur. (ALLOW_OPEN_SETUP=1 lève ce blocage, à vos risques.)
+ */
+export function setupBlocked(): boolean {
+  return process.env.NODE_ENV === "production" && !process.env.SETUP_CODE && process.env.ALLOW_OPEN_SETUP !== "1";
+}
+
 function codeMatches(given: string): boolean {
   const expected = process.env.SETUP_CODE ?? "";
   if (!expected) return true;
@@ -43,7 +52,8 @@ export function parseSetupForm(fd: FormData): { data: SetupInput | null; errors:
   const countryCode = str(fd, "country") || DEFAULT_COUNTRY;
   if (!COUNTRIES[countryCode]) errors.country = "Choisissez le pays de votre entreprise.";
   const country = getCountry(countryCode);
-  if (setupCodeRequired() && !codeMatches(str(fd, "setup_code"))) errors.setup_code = "Code d'installation incorrect.";
+  if (setupBlocked()) errors.setup_code = "Installation bloquée : définissez d'abord la variable SETUP_CODE chez votre hébergeur.";
+  else if (setupCodeRequired() && !codeMatches(str(fd, "setup_code"))) errors.setup_code = "Code d'installation incorrect.";
   const companyName = str(fd, "company_name");
   if (companyName.length < 2) errors.company_name = "Indiquez le nom de votre entreprise de livraison.";
   const rawCompanyPhone = str(fd, "company_phone");

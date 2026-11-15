@@ -69,6 +69,15 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
 - En attente : avis des testeurs (texte WhatsApp envoyé), enregistrement de la voix de Marcel pour
   la vidéo « Votre GP en ligne » (version avec voix de synthèse déjà faite).
 
+## Revue de sécurité (15 novembre)
+- Corrigé dans le code : Next.js 16.3.5 → 16.4.6 (failles critiques connues, dont exécution de code à
+  distance) ; installation bloquée en production sans `SETUP_CODE` ; en-têtes de sécurité (anti-
+  clickjacking, HSTS…) ; limite de 20 échecs de connexion / 15 min par adresse IP ; notifications push
+  limitées aux services des navigateurs.
+- À faire par Marcel : changer le mot de passe des comptes de démo (admin@demo.sn d'abord) tant que la
+  démo est en ligne ; `HIDE_DEMO_HINT=1` ; vérifier qu'`INSECURE_COOKIES` n'existe pas sur Railway ;
+  régénérer la clé Brevo ; au passage en réel, mettre `SETUP_CODE` AVANT d'effacer la démo.
+
 ## Vidéos promotionnelles (13 novembre)
 - Vidéo 1 « démonstration » (1 min 17, vertical, sous-titres) et vidéo 2 « publicité » (32 s, musique
   composée, libre de droits) envoyées dans la conversation. Scripts de fabrication dans le dossier
