@@ -154,6 +154,8 @@ function seedGp(companyId: number, adminId: number, passwordHash: string): numbe
   book(past, "GP-DEMO-003", 4, "Tissus", "Ndeye Diop", "+33600000003", "Paris", "livree", {
     confirmed: ago(18), delivered: ago(13), rating: 5, comment: "Colis bien arrivé, GP sérieux.", created: ago(18),
   });
+  // Colis livré : il avait été reçu et vérifié par le GP au dépôt.
+  run("UPDATE gp_bookings SET checked_at = confirmed_at WHERE company_id = ? AND status = 'livree'", companyId);
   // Période de lancement : mise en relation gratuite (à changer dans GP voyageurs → Réglages GP).
   run("UPDATE companies SET gp_fee = 0, gp_payment_info = COALESCE(gp_payment_info, ?) WHERE id = ?", "Wave ou Orange Money : 70 000 00 00 (Dakar Express Livraison) — numéro de démonstration", companyId);
   return 5;
@@ -180,7 +182,7 @@ if (existing && !reset) {
   process.exit(0);
 }
 if (reset) {
-  for (const t of ["gp_bookings", "gp_trips", "email_verifications", "notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
+  for (const t of ["gp_reports", "gp_bookings", "gp_trips", "email_verifications", "notifications", "push_subscriptions", "shipment_events", "events", "deliveries", "shipments", "settlements", "sessions", "users", "merchants", "companies"]) db.exec(`DELETE FROM ${t}`);
   console.log("Base vidée.");
 }
 

@@ -81,6 +81,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       </Link>
                       <BookingBadge status={b.status} />
                     </div>
+                    {b.checked_at ? <p className="text-xs font-semibold text-emerald-700">✓ Reçu et vérifié</p> : null}
+                    {b.refusal_reason ? <p className="text-xs font-semibold text-red-700">Refusé : {b.refusal_reason}</p> : null}
                     <p className="text-sm text-ink-soft">
                       {b.description} · pour {b.recipient_name}
                       {b.recipient_city ? ` (${b.recipient_city})` : ""}
@@ -128,6 +130,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                   fee={fee ? formatMoney(fee, country) : null}
                   phoneExample={country.phoneExample}
                   prohibited={gp.PROHIBITED_ITEMS}
+                  customsNote={gp.CUSTOMS_NOTE}
+                  currencyLabel={country.currencyLabel}
                 />
               </Card>
             ) : user.role === "merchant" ? (

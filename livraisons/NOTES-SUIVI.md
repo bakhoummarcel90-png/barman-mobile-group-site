@@ -62,6 +62,13 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
 - Démo : `gp@demo.sn` (même mot de passe que la démo).
 - Plus tard : paiement automatique (PayTech / PayDunya / CinetPay), suivi du colis GP avec numéro SL.
 
+## Garde-fous GP (15 novembre, suite à l'avis de Bob Robert Ngom)
+- Objets interdits détaillés + douane, conditions d'utilisation `/conditions` (à faire relire par un
+  juriste), valeur déclarée, vérification du colis par le GP (photo) avant remise, refus d'un colis,
+  signalements avec suspension de compte par l'admin.
+- En attente : avis des testeurs (texte WhatsApp envoyé), enregistrement de la voix de Marcel pour
+  la vidéo « Votre GP en ligne » (version avec voix de synthèse déjà faite).
+
 ## Vidéos promotionnelles (13 novembre)
 - Vidéo 1 « démonstration » (1 min 17, vertical, sous-titres) et vidéo 2 « publicité » (32 s, musique
   composée, libre de droits) envoyées dans la conversation. Scripts de fabrication dans le dossier

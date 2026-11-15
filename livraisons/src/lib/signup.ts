@@ -44,7 +44,7 @@ function commonFields(fd: FormData, country: CountryConfig, errors: FieldErrors,
   const confirm = typeof fd.get("confirm_password") === "string" ? (fd.get("confirm_password") as string) : "";
   if (password.length < PASSWORD_MIN) errors.password = `Au moins ${PASSWORD_MIN} caractères.`;
   else if (password !== confirm) errors.confirm_password = "Les deux mots de passe ne correspondent pas.";
-  if (str(fd, "accept") !== "1") errors.accept = "Acceptez la politique de confidentialité pour continuer.";
+  if (str(fd, "accept") !== "1") errors.accept = "Acceptez les conditions d'utilisation et la politique de confidentialité pour continuer.";
   return { phone, email, password };
 }
 

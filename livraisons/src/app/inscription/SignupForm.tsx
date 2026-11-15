@@ -136,7 +136,11 @@ export function SignupForm({
       <label className="flex items-start gap-2 text-sm text-ink-soft">
         <input type="checkbox" name="accept" value="1" className="mt-1 h-4 w-4" defaultChecked={state.values?.accept === "1"} />
         <span>
-          J'accepte la{" "}
+          J'accepte les{" "}
+          <Link href="/conditions" className="link" target="_blank">
+            conditions d'utilisation
+          </Link>{" "}
+          et la{" "}
           <Link href="/confidentialite" className="link" target="_blank">
             politique de confidentialité
           </Link>

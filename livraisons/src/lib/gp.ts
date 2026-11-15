@@ -43,13 +43,28 @@ const CURRENCY_LABELS: Record<string, string> = { XOF: "FCFA", EUR: "€", USD: 
 
 /** Objets refusés : l'expéditeur les accepte avant de réserver. */
 export const PROHIBITED_ITEMS = [
-  "Argent liquide, bijoux de valeur",
-  "Médicaments sans ordonnance, drogues",
-  "Armes, munitions, objets tranchants",
-  "Produits inflammables, gaz, batteries seules",
-  "Denrées périssables non emballées",
-  "Contrefaçons et tout produit interdit dans le pays d'arrivée",
+  "Drogues, stupéfiants, médicaments sans ordonnance",
+  "Armes, munitions, objets tranchants, explosifs",
+  "Argent liquide, or, bijoux de valeur",
+  "Produits inflammables, gaz, batteries seules, parfums en grande quantité",
+  "Viande, poisson, produits laitiers, œufs ; plantes, graines et terre",
+  "Alcool et tabac au-delà des quantités autorisées",
+  "Contrefaçons (faux produits de marque), faux documents",
+  "Animaux, espèces protégées (ivoire, peaux…)",
 ];
+
+/** Rappel affiché sous la liste des objets interdits. */
+export const CUSTOMS_NOTE =
+  "Les règles de douane varient selon le pays d'arrivée. Le GP ouvre et vérifie chaque colis au dépôt : il peut refuser tout colis dont le contenu ne correspond pas à la déclaration.";
+
+/** Motifs de signalement d'une réservation. */
+export const REPORT_REASONS: Record<string, string> = {
+  contenu: "Colis suspect ou objet interdit",
+  injoignable: "GP ou expéditeur injoignable",
+  non_livre: "Colis non livré ou perdu",
+  comportement: "Comportement inapproprié",
+  autre: "Autre problème",
+};
 
 /** Kilos qu'un voyage peut proposer au plus. */
 const MAX_CAPACITY_GRAMS = 300_000;
@@ -105,6 +120,13 @@ export interface GpBooking {
   confirmed_by: number | null;
   confirmed_at: string | null;
   delivered_at: string | null;
+  /** Valeur approximative déclarée par l'expéditeur (FCFA). */
+  declared_value: number | null;
+  /** Colis reçu par le GP, contenu ouvert et vérifié devant l'expéditeur. */
+  checked_at: string | null;
+  check_photo: string | null;
+  /** Motif du refus du colis par le GP (réservation alors annulée). */
+  refusal_reason: string | null;
   rating: number | null;
   rating_comment: string | null;
   created_at: string;
@@ -436,6 +458,7 @@ export function canManageTrip(actor: Actor, t: Pick<GpTrip, "gp_id">): boolean {
 /* ---------- Réservations ---------- */
 
 export interface BookingInput {
+  declaredValue?: number | null;
   weightGrams: number;
   description: string;
   recipientName: string;
@@ -456,9 +479,15 @@ export function parseBookingForm(fd: FormData, countryCode: string): { data: Boo
   const recipientPhone = normalizePhone(rawPhone, getCountry(countryCode));
   if (!rawPhone) errors.recipient_phone = "Le téléphone du destinataire est obligatoire.";
   else if (!recipientPhone) errors.recipient_phone = "Numéro invalide. Pour l'étranger, commencez par l'indicatif (ex. +33 6 12 34 56 78).";
+  const rawValue = str(fd, "declared_value");
+  const declaredValue = rawValue ? parseAmount(rawValue) : null;
+  if (rawValue && declaredValue === null) errors.declared_value = "Montant invalide : chiffres uniquement, par ex. 50000.";
   if (str(fd, "accept_rules") !== "1") errors.accept_rules = "Confirmez que le colis ne contient aucun objet interdit.";
   if (Object.keys(errors).length) return { data: null, errors };
-  return { data: { weightGrams: weightGrams!, description, recipientName, recipientPhone: recipientPhone!, recipientCity: optional(fd, "recipient_city") }, errors };
+  return {
+    data: { weightGrams: weightGrams!, description, recipientName, recipientPhone: recipientPhone!, recipientCity: optional(fd, "recipient_city"), declaredValue },
+    errors,
+  };
 }
 
 const BOOKING_VIEW = `
@@ -504,8 +533,8 @@ export function createBooking(actor: Actor, tripId: number, input: BookingInput)
     const reference = newReference(actor.companyId, today);
     const id = run(
       `INSERT INTO gp_bookings (company_id, reference, trip_id, sender_id, weight_grams, description, recipient_name, recipient_phone,
-         recipient_city, fee, status, confirmed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         recipient_city, fee, status, confirmed_at, created_at, updated_at, declared_value)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       actor.companyId,
       reference,
       tripId,
@@ -520,6 +549,7 @@ export function createBooking(actor: Actor, tripId: number, input: BookingInput)
       free ? now : null,
       now,
       now,
+      input.declaredValue ?? null,
     ).id;
     if (remainingGrams(t) - input.weightGrams <= 0) run("UPDATE gp_trips SET status = 'complet', updated_at = ? WHERE id = ?", now, tripId);
     logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: t.gp_id, kind: "gp", message: `Réservation ${reference} : ${formatWeight(input.weightGrams)} sur ${routeLabel(t)}` });
@@ -655,6 +685,7 @@ export function markBookingDelivered(actor: Actor, id: number): void {
     const allowed = actor.role === "admin" || (actor.role === "gp" && b.gp_id === actor.id) || (actor.role === "merchant" && b.sender_id === actor.id);
     if (!allowed) throw new UserError("Réservation introuvable.");
     if (b.status !== "confirmee") throw new UserError("Seule une réservation confirmée peut être marquée livrée.");
+    if (!b.checked_at) throw new UserError("Le GP doit d'abord confirmer avoir reçu et vérifié le colis.");
     const now = new Date().toISOString();
     run("UPDATE gp_bookings SET status = 'livree', delivered_at = ?, updated_at = ? WHERE id = ?", now, now, id);
     logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: b.gp_id, kind: "gp", message: `Colis ${b.reference} remis au destinataire` });
@@ -706,4 +737,128 @@ export function closeTripsOf(gpId: number): void {
     gpId,
   );
   run("UPDATE gp_trips SET status = 'annule', updated_at = ? WHERE gp_id = ? AND status <> 'annule'", now, gpId);
+}
+
+/* ---------- Garde-fous : vérification du colis au dépôt ---------- */
+
+function gpBooking(actor: Actor, id: number): GpBookingView {
+  const b = bookingFor(actor, id);
+  if (actor.role !== "admin" && !(actor.role === "gp" && b.gp_id === actor.id)) throw new UserError("Réservation introuvable.");
+  return b;
+}
+
+/**
+ * Le GP a reçu le colis, l'a ouvert et vérifié devant l'expéditeur
+ * (photo du contenu facultative). Étape obligatoire avant la remise.
+ */
+export function receiveBooking(actor: Actor, id: number, verified: boolean, photo: string | null): void {
+  if (!verified) throw new UserError("Cochez la case : vous devez ouvrir et vérifier le contenu du colis avant de l'accepter.");
+  transaction(() => {
+    const b = gpBooking(actor, id);
+    if (b.status !== "confirmee") throw new UserError("Seule une réservation confirmée peut être reçue.");
+    if (b.checked_at) throw new UserError("Ce colis est déjà enregistré comme reçu.");
+    const now = new Date().toISOString();
+    run("UPDATE gp_bookings SET checked_at = ?, check_photo = ?, updated_at = ? WHERE id = ?", now, photo, now, id);
+    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: b.gp_id, kind: "gp", message: `Colis ${b.reference} reçu et vérifié par le GP` });
+    notifyUser(actor.companyId, b.sender_id, { title: "Colis reçu par le GP", body: `${b.gp_name} a reçu et vérifié votre colis (${b.reference}).`, url: `/gp/reservations/${id}` });
+  });
+}
+
+/** Le GP refuse le colis (contenu non conforme, interdit…) : réservation annulée, administrateurs prévenus. */
+export function refuseBooking(actor: Actor, id: number, reason: string): void {
+  if (reason.length < 3) throw new UserError("Indiquez pourquoi vous refusez le colis.");
+  if (reason.length > 300) throw new UserError("300 caractères au maximum.");
+  transaction(() => {
+    const b = gpBooking(actor, id);
+    if (b.status !== "confirmee" || b.checked_at) throw new UserError("Ce colis ne peut plus être refusé.");
+    const now = new Date().toISOString();
+    run("UPDATE gp_bookings SET status = 'annulee', refusal_reason = ?, updated_at = ? WHERE id = ?", reason, now, id);
+    run("UPDATE gp_trips SET status = 'ouvert', updated_at = ? WHERE id = ? AND status = 'complet'", now, b.trip_id);
+    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: b.gp_id, kind: "gp", message: `Colis ${b.reference} refusé par le GP : ${reason}` });
+    notifyUser(actor.companyId, b.sender_id, { title: "Colis refusé par le GP", body: `${b.reference} : ${reason}`, url: `/gp/reservations/${id}` });
+    notifyAdmins(actor.companyId, { title: "Colis refusé par un GP", body: `${b.gp_name} a refusé ${b.reference} (${b.sender_name}) : ${reason}`, url: `/gp/reservations/${id}` });
+  });
+}
+
+/* ---------- Garde-fous : signalements ---------- */
+
+export interface GpReportView {
+  id: number;
+  booking_id: number;
+  reporter_id: number;
+  reason: string;
+  details: string | null;
+  status: "ouvert" | "traite";
+  resolution: string | null;
+  created_at: string;
+  handled_at: string | null;
+  reporter_name: string;
+  reporter_role: string;
+  reference: string;
+  gp_id: number;
+  gp_name: string;
+  sender_id: number;
+  sender_name: string;
+}
+
+const REPORT_VIEW = `
+  SELECT r.*, u.name AS reporter_name, u.role AS reporter_role, b.reference, t.gp_id, g.name AS gp_name, b.sender_id, s.name AS sender_name
+  FROM gp_reports r
+  JOIN users u ON u.id = r.reporter_id
+  JOIN gp_bookings b ON b.id = r.booking_id
+  JOIN gp_trips t ON t.id = b.trip_id
+  JOIN users g ON g.id = t.gp_id
+  JOIN users s ON s.id = b.sender_id`;
+
+export function canReport(actor: Actor, b: Pick<GpBookingView, "sender_id" | "gp_id">): boolean {
+  return (actor.role === "merchant" && b.sender_id === actor.id) || (actor.role === "gp" && b.gp_id === actor.id);
+}
+
+export function createReport(actor: Actor, bookingId: number, reason: string, details: string | null): number {
+  if (!(reason in REPORT_REASONS)) throw new UserError("Choisissez le motif du signalement.");
+  if (details && details.length > 1000) throw new UserError("1000 caractères au maximum.");
+  if (reason === "autre" && !details) throw new UserError("Décrivez le problème en quelques mots.");
+  return transaction(() => {
+    const b = bookingFor(actor, bookingId);
+    if (!canReport(actor, b)) throw new UserError("Réservation introuvable.");
+    if (get("SELECT 1 FROM gp_reports WHERE booking_id = ? AND reporter_id = ? AND status = 'ouvert'", bookingId, actor.id))
+      throw new UserError("Vous avez déjà un signalement en cours pour cette réservation : l'entreprise va vous recontacter.");
+    const id = run("INSERT INTO gp_reports (company_id, booking_id, reporter_id, reason, details) VALUES (?, ?, ?, ?, ?)", actor.companyId, bookingId, actor.id, reason, details).id;
+    logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: b.gp_id, kind: "gp", message: `Signalement sur ${b.reference} : ${REPORT_REASONS[reason]}` });
+    notifyAdmins(actor.companyId, {
+      title: "Nouveau signalement GP",
+      body: `${actor.name} signale « ${REPORT_REASONS[reason]} » sur ${b.reference}${details ? ` : ${details.slice(0, 120)}` : ""}.`,
+      url: "/gp#signalements",
+    });
+    return id;
+  });
+}
+
+export function listReports(actor: Actor): GpReportView[] {
+  if (actor.role !== "admin") return [];
+  return all<GpReportView>(`${REPORT_VIEW} WHERE r.company_id = ? AND (r.status = 'ouvert' OR r.created_at >= ?) ORDER BY r.status = 'traite', r.id DESC LIMIT 100`, actor.companyId, new Date(Date.now() - 30 * 86400_000).toISOString());
+}
+
+export function bookingReports(actor: Actor, bookingId: number): GpReportView[] {
+  const rows = all<GpReportView>(`${REPORT_VIEW} WHERE r.booking_id = ? AND r.company_id = ? ORDER BY r.id DESC`, bookingId, actor.companyId);
+  return actor.role === "admin" ? rows : rows.filter((r) => r.reporter_id === actor.id);
+}
+
+export function getReport(actor: Actor, id: number): GpReportView {
+  if (actor.role !== "admin") throw new UserError("Action réservée à l'administrateur.");
+  const r = get<GpReportView>(`${REPORT_VIEW} WHERE r.id = ? AND r.company_id = ?`, id, actor.companyId);
+  if (!r) throw new UserError("Signalement introuvable.");
+  return r;
+}
+
+export function resolveReport(actor: Actor, id: number, resolution: string): void {
+  const r = getReport(actor, id);
+  if (r.status === "traite") throw new UserError("Ce signalement est déjà traité.");
+  run("UPDATE gp_reports SET status = 'traite', resolution = ?, handled_by = ?, handled_at = ? WHERE id = ?", resolution, actor.id, new Date().toISOString(), id);
+  logEvent({ companyId: actor.companyId, userId: actor.id, subjectUserId: r.gp_id, kind: "gp", message: `Signalement sur ${r.reference} traité : ${resolution}` });
+}
+
+export function openReportCount(actor: Actor): number {
+  if (actor.role !== "admin") return 0;
+  return get<{ n: number }>("SELECT COUNT(*) AS n FROM gp_reports WHERE company_id = ? AND status = 'ouvert'", actor.companyId)!.n;
 }

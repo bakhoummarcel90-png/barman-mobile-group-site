@@ -306,6 +306,11 @@ export function merchantOptions(actor: Actor): { id: number; name: string; activ
   return all(`SELECT m.id, m.name, m.active FROM merchants m WHERE m.company_id = ? ${UNVERIFIED_FILTER} ORDER BY m.active DESC, m.name`, actor.companyId);
 }
 
+/** Boutique (fiche commerçant) d'un compte utilisateur, s'il en a une. */
+export function merchantIdOfUser(actor: Actor, userId: number): number | null {
+  return get<{ merchant_id: number | null }>("SELECT merchant_id FROM users WHERE id = ? AND company_id = ?", userId, actor.companyId)?.merchant_id ?? null;
+}
+
 export function setMerchantActive(actor: Actor, id: number, active: boolean): void {
   requireAdmin(actor);
   transaction(() => {
