@@ -144,6 +144,13 @@ describe("GP : réservations et frais", () => {
 
     assert.throws(() => G.cancelBooking(sender, id), /contactez le GP/);
     assert.throws(() => G.rateBooking(sender, id, 5, null), /une fois le colis livré/);
+    assert.throws(() => G.markBookingDelivered(gp, id), /reçu et vérifié/);
+    assert.throws(() => G.receiveBooking(gp, id, false, null), /Cochez la case/);
+    assert.throws(() => G.receiveBooking(gp2, id, true, null), /introuvable/);
+    assert.throws(() => G.receiveBooking(sender, id, true, null), /introuvable/);
+    G.receiveBooking(gp, id, true, null);
+    assert.ok(G.getBooking(sender, id)!.checked_at);
+    assert.ok(get("SELECT 1 FROM notifications WHERE user_id = ? AND title = 'Colis reçu par le GP'", sender.id));
     G.markBookingDelivered(gp, id);
     assert.throws(() => G.rateBooking(sender, id, 6, null), /1 à 5/);
     G.rateBooking(sender, id, 4, "Bien");
@@ -236,6 +243,7 @@ describe("GP : comptes et accès", () => {
     const b = G.createBooking(sender, tripId, booking(1));
     G.confirmBooking(admin, b);
     assert.throws(() => P.deleteOwnAccount(me, "motdepasse"), /colis confirmé/);
+    G.receiveBooking(me, b, true, null);
     G.markBookingDelivered(me, b);
     const open = newTrip(me);
     P.deleteOwnAccount(me, "motdepasse");
@@ -263,5 +271,57 @@ describe("lancement gratuit et suivi de la croissance", () => {
     assert.ok(s.weeks[0].signups >= 6, "inscriptions de la semaine comptées (hors administrateurs)");
     assert.ok(s.totals.gps >= 2);
     assert.equal(GR.growthStats(adminB)!.totals.gpBookings, 0, "isolation entre entreprises");
+  });
+});
+
+describe("garde-fous GP", () => {
+  test("valeur déclarée facultative, montant vérifié", () => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ weight_kg: "2", description: "Habits", recipient_name: "Awa", recipient_phone: "+33612345678", accept_rules: "1" })) fd.set(k, v);
+    assert.equal(G.parseBookingForm(fd, "SN").data?.declaredValue, null);
+    fd.set("declared_value", "50 000");
+    assert.equal(G.parseBookingForm(fd, "SN").data?.declaredValue, 50000);
+    fd.set("declared_value", "beaucoup");
+    assert.ok(G.parseBookingForm(fd, "SN").errors.declared_value);
+    const tripId = newTrip(gp);
+    const id = G.createBooking(sender, tripId, { ...booking(1), declaredValue: 75000 });
+    assert.equal(G.getBooking(admin, id)!.declared_value, 75000);
+  });
+
+  test("le GP refuse un colis non conforme : réservation annulée, voyage rouvert, administrateurs prévenus", () => {
+    const tripId = newTrip(gp, { capacity_kg: "2" });
+    const id = G.createBooking(sender, tripId, booking(2));
+    G.confirmBooking(admin, id);
+    assert.equal(G.getTrip(admin, tripId)!.status, "complet");
+    assert.throws(() => G.refuseBooking(gp, id, "x"), /pourquoi/);
+    assert.throws(() => G.refuseBooking(sender, id, "Contenu suspect"), /introuvable/);
+    G.refuseBooking(gp, id, "Contenu différent de la déclaration");
+    const b = G.getBooking(admin, id)!;
+    assert.equal(b.status, "annulee");
+    assert.equal(b.refusal_reason, "Contenu différent de la déclaration");
+    assert.equal(G.getTrip(admin, tripId)!.status, "ouvert");
+    assert.ok(get("SELECT 1 FROM notifications WHERE user_id = ? AND title = 'Colis refusé par un GP'", admin.id));
+    assert.throws(() => G.receiveBooking(gp, id, true, null), /confirmée/);
+  });
+
+  test("signalements : expéditeur et GP de la réservation seulement, un seul en cours, traités par l'administrateur", () => {
+    const tripId = newTrip(gp);
+    const id = G.createBooking(sender, tripId, booking(1));
+    assert.throws(() => G.createReport(sender, id, "inconnu", null), /motif/);
+    assert.throws(() => G.createReport(sender, id, "autre", null), /Décrivez/);
+    assert.throws(() => G.createReport(sender2, id, "contenu", null), /introuvable/);
+    assert.throws(() => G.createReport(gp2, id, "contenu", null), /introuvable/);
+    const r = G.createReport(sender, id, "injoignable", "Le GP ne répond pas");
+    assert.throws(() => G.createReport(sender, id, "injoignable", null), /déjà un signalement/);
+    G.createReport(gp, id, "contenu", "L'expéditeur veut envoyer des médicaments");
+    assert.ok(get("SELECT 1 FROM notifications WHERE user_id = ? AND title = 'Nouveau signalement GP'", admin.id));
+    assert.equal(G.openReportCount(admin), 2);
+    assert.equal(G.bookingReports(sender, id).length, 1, "chacun ne voit que ses signalements");
+    assert.equal(G.bookingReports(admin, id).length, 2);
+    assert.throws(() => G.resolveReport(gp, r, "ok"), /administrateur/);
+    G.resolveReport(admin, r, "GP joint par téléphone");
+    assert.equal(G.openReportCount(admin), 1);
+    assert.throws(() => G.resolveReport(admin, r, "encore"), /déjà traité/);
+    assert.equal(G.listReports(adminB).length, 0, "isolation entre entreprises");
   });
 });

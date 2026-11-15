@@ -74,12 +74,15 @@ function actionsFor(actor: Actor): DashboardAction[] {
     const applicants = get<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'courier' AND pending = 1", actor.companyId)!.n;
     if (applicants)
       out.push({ label: "Livreurs à valider", detail: "Inscriptions reçues depuis la page d'inscription", count: applicants, href: "/livreurs#a-valider", tone: "warning" });
-    const gp = get<{ pending: number; toVerify: number }>(
+    const gp = get<{ pending: number; toVerify: number; reports: number }>(
       `SELECT (SELECT COUNT(*) FROM users WHERE company_id = ? AND role = 'gp' AND pending = 1) AS pending,
-              (SELECT COUNT(*) FROM gp_bookings WHERE company_id = ? AND status = 'a_verifier') AS toVerify`,
+              (SELECT COUNT(*) FROM gp_bookings WHERE company_id = ? AND status = 'a_verifier') AS toVerify,
+              (SELECT COUNT(*) FROM gp_reports WHERE company_id = ? AND status = 'ouvert') AS reports`,
+      actor.companyId,
       actor.companyId,
       actor.companyId,
     )!;
+    if (gp.reports) out.push({ label: "Signalements GP à traiter", detail: "Colis suspect, GP injoignable, colis non livré…", count: gp.reports, href: "/gp#signalements", tone: "danger" });
     if (gp.pending) out.push({ label: "GP à valider", detail: "Vérifiez leur identité avant d'accepter", count: gp.pending, href: "/gp#gp-a-valider", tone: "warning" });
     if (gp.toVerify)
       out.push({ label: "Paiements GP à vérifier", detail: "Frais de mise en relation déclarés par les expéditeurs", count: gp.toVerify, href: "/gp#a-verifier", tone: "warning" });

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, Circle, Star } from "lucide-react";
 import { ContactButtons } from "@/components/ContactButtons";
 import { BookingBadge, formatDay } from "@/components/GpTripCard";
-import { BookingButtons, DeclarePaymentForm, PaymentDecision, RateGpForm } from "@/components/GpForms";
+import { BookingButtons, DeclarePaymentForm, PaymentDecision, RateGpForm, ReceiveForms, ReportForm } from "@/components/GpForms";
 import { Alert, Card, DefinitionList, OkBanner, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
@@ -23,14 +23,22 @@ const OK = {
   noter: "Merci pour votre avis !",
   "paiement-confirme": "Paiement confirmé : l'expéditeur et le GP ont reçu leurs coordonnées.",
   "paiement-refuse": "L'expéditeur est prévenu que son paiement n'a pas été retrouvé.",
+  recu: "Colis enregistré comme reçu et vérifié : l'expéditeur est prévenu.",
+  refuse: "Colis refusé : l'expéditeur et l'entreprise sont prévenus.",
+  signale: "Signalement envoyé : l'entreprise va le traiter rapidement.",
 };
 
-const STEPS: { key: gp.BookingStatus[]; label: string }[] = [
-  { key: ["a_payer", "a_verifier", "confirmee", "livree"], label: "Kilos réservés" },
-  { key: ["a_verifier", "confirmee", "livree"], label: "Frais payés" },
-  { key: ["confirmee", "livree"], label: "Confirmée : contacts échangés" },
-  { key: ["livree"], label: "Colis remis au destinataire" },
-];
+/** Étapes du suivi ; « Frais payés » n'apparaît que s'il y a des frais. */
+function steps(b: gp.GpBookingView): { label: string; done: boolean }[] {
+  const out = [{ label: "Kilos réservés", done: b.status !== "annulee" }];
+  if (b.fee) out.push({ label: "Frais payés", done: ["a_verifier", "confirmee", "livree"].includes(b.status) });
+  out.push(
+    { label: "Confirmée : contacts échangés", done: b.status === "confirmee" || b.status === "livree" },
+    { label: "Colis reçu et vérifié par le GP", done: !!b.checked_at },
+    { label: "Colis remis au destinataire", done: b.status === "livree" },
+  );
+  return out;
+}
 
 export default async function BookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireUser(["gp", "admin", "merchant"]);
@@ -43,6 +51,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const isAdmin = user.role === "admin";
   const visible = gp.contactsVisible(b);
   const settings = gp.gpSettings(user.companyId);
+  const reports = gp.bookingReports(user, b.id);
   const transportPrice = Math.ceil((b.weight_grams / 1000) * b.price_per_kg);
   const methods = country.paymentMethods.filter((m) => m.kind === "mobile_money").map((m) => ({ code: m.code, name: m.label }));
 
@@ -56,7 +65,19 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
       <OkBanner code={ok} messages={b.status === "confirmee" ? { ...OK, reservee: "Réservation confirmée : contactez votre GP pour lui déposer le colis." } : OK} />
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-5">
-          {b.status === "annulee" ? <Alert tone="warning">Cette réservation est annulée.</Alert> : null}
+          {b.status === "annulee" ? (
+            <Alert tone="warning">{b.refusal_reason ? `Colis refusé par le GP : ${b.refusal_reason}` : "Cette réservation est annulée."}</Alert>
+          ) : null}
+
+          {/* Réception : le GP ouvre et vérifie le colis devant l'expéditeur */}
+          {(isGp || isAdmin) && b.status === "confirmee" && !b.checked_at ? (
+            <Card title="Réception du colis">
+              <ReceiveForms id={b.id} description={b.description} />
+            </Card>
+          ) : null}
+          {isSender && b.status === "confirmee" && !b.checked_at ? (
+            <Alert tone="info">Au dépôt, le GP ouvrira votre colis devant vous pour vérifier son contenu. Un colis non conforme peut être refusé.</Alert>
+          ) : null}
 
           {/* Paiement des frais (expéditeur) */}
           {isSender && b.status === "a_payer" ? (
@@ -138,18 +159,33 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             </Card>
           ) : null}
 
+          {reports.length ? (
+            <Card title="Signalements">
+              <ul className="space-y-2 text-sm">
+                {reports.map((r) => (
+                  <li key={r.id}>
+                    <span className="font-semibold">{gp.REPORT_REASONS[r.reason] ?? r.reason}</span> · {formatDateTime(r.created_at, country)} ·{" "}
+                    {r.status === "ouvert" ? "en cours de traitement" : `traité${r.resolution ? ` : ${r.resolution}` : ""}`}
+                    {r.details ? <span className="block text-ink-muted">« {r.details} »</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+
           <BookingButtons
             id={b.id}
-            canDeliver={b.status === "confirmee"}
+            canDeliver={b.status === "confirmee" && !!b.checked_at}
             canCancel={(isSender && (b.status === "a_payer" || b.status === "a_verifier")) || (isAdmin && b.status !== "annulee" && b.status !== "livree")}
           />
+          {gp.canReport(user, b) ? <ReportForm id={b.id} reasons={gp.REPORT_REASONS} /> : null}
         </div>
 
         <div className="space-y-5">
           <Card title="Suivi" actions={<BookingBadge status={b.status} />}>
             <ol className="space-y-3">
-              {STEPS.map((s) => {
-                const done = s.key.includes(b.status);
+              {steps(b).map((s) => {
+                const done = s.done;
                 return (
                   <li key={s.label} className="flex items-center gap-2 text-sm">
                     {done ? <CheckCircle2 className="h-5 w-5 text-brand-600" aria-hidden /> : <Circle className="h-5 w-5 text-slate-300" aria-hidden />}
@@ -164,6 +200,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
               items={[
                 ["Poids", gp.formatWeight(b.weight_grams)],
                 ["Contenu", b.description],
+                ...((b.declared_value ? [["Valeur déclarée", formatMoney(b.declared_value, country)]] : []) as [string, string][]),
+                ...((b.checked_at ? [["Reçu et vérifié par le GP", formatDateTime(b.checked_at, country)]] : []) as [string, string][]),
                 ["Destinataire", `${b.recipient_name}${b.recipient_city ? ` · ${b.recipient_city}` : ""}`],
                 ...((b.recipient_phone ? [["Téléphone du destinataire", formatPhone(b.recipient_phone, country)]] : []) as [string, string][]),
                 ["Prix du transport", `≈ ${gp.moneyIn(transportPrice, b.currency)} (${gp.pricePerKgLabel(b)}), à régler au GP`],
@@ -172,7 +210,11 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
                 ["Réservé le", formatDateTime(b.created_at, country)],
               ]}
             />
-            <Link href={`/gp/voyages/${b.trip_id}`} className="link mt-3 inline-block text-sm">
+            {b.check_photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/api/gp-photo/${b.id}`} alt="Photo du contenu du colis" className="mt-3 max-h-64 rounded-xl border border-slate-200" />
+            ) : null}
+            <Link href={`/gp/voyages/${b.trip_id}`} className="link mt-3 block text-sm">
               Voir le voyage
             </Link>
           </Card>

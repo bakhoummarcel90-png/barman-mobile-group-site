@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, Banknote, Plane, PlusCircle, Search, UserCheck } from "lucide-react";
+import { BadgeCheck, Banknote, Flag, Plane, PlusCircle, Search, UserCheck } from "lucide-react";
 import { BookingBadge, formatDay, TripBadge, TripCard } from "@/components/GpTripCard";
-import { GpApplication, GpSettingsForm, PaymentDecision } from "@/components/GpForms";
+import { GpApplication, GpSettingsForm, PaymentDecision, ReportDecision } from "@/components/GpForms";
 import { LaunchBanner } from "@/components/Growth";
 import { Card, EmptyState, OkBanner, PageHeader, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -23,6 +23,8 @@ const OK = {
   "gp-refuse": "Inscription refusée : le compte est fermé.",
   "paiement-confirme": "Paiement confirmé : l'expéditeur et le GP ont reçu leurs coordonnées.",
   "paiement-refuse": "L'expéditeur est prévenu que son paiement n'a pas été retrouvé.",
+  "signalement-traite": "Signalement marqué comme traité.",
+  "compte-suspendu": "Compte suspendu : la personne ne peut plus se connecter. Signalement traité.",
 };
 
 export default async function GpPage({ searchParams }: { searchParams: Promise<Params> }) {
@@ -174,6 +176,8 @@ function AdminHome({ user, ok }: { user: Actor; ok?: string }) {
   const trips = gp.listTrips(user);
   const recent = gp.recentBookings(user, 30);
   const settings = gp.gpSettings(user.companyId);
+  const reports = gp.listReports(user);
+  const openReports = reports.filter((r) => r.status === "ouvert").length;
   return (
     <>
       <PageHeader
@@ -186,12 +190,39 @@ function AdminHome({ user, ok }: { user: Actor; ok?: string }) {
         }
       />
       <OkBanner code={ok} messages={OK} />
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Voyages ouverts" value={counts.trips} icon={Plane} />
         <Stat label="Paiements à vérifier" value={counts.toVerify} tone={counts.toVerify ? "warning" : "default"} icon={Banknote} href="#a-verifier" />
         <Stat label="GP à valider" value={counts.pendingGps} tone={counts.pendingGps ? "warning" : "default"} icon={UserCheck} href="#gp-a-valider" />
+        <Stat label="Signalements" value={openReports} tone={openReports ? "danger" : "default"} icon={Flag} href="#signalements" />
       </div>
       <div className="space-y-5">
+        <Card title="Signalements" id="signalements">
+          {reports.length ? (
+            <ul className="divide-y divide-slate-100">
+              {reports.map((r) => (
+                <li key={r.id} className="space-y-2 py-3">
+                  <p className="font-semibold text-ink">
+                    {gp.REPORT_REASONS[r.reason] ?? r.reason}
+                    {r.status === "traite" ? <span className="ml-2 text-xs font-normal text-ink-muted">traité{r.resolution ? ` : ${r.resolution}` : ""}</span> : null}
+                  </p>
+                  <p className="text-sm text-ink-muted">
+                    Par {r.reporter_name} ({r.reporter_role === "gp" ? "GP" : "expéditeur"}) le {formatDateTime(r.created_at, country)} ·{" "}
+                    <Link className="link" href={`/gp/reservations/${r.booking_id}`}>
+                      {r.reference}
+                    </Link>{" "}
+                    · GP {r.gp_name} · expéditeur {r.sender_name}
+                  </p>
+                  {r.details ? <p className="text-sm text-ink-soft">« {r.details} »</p> : null}
+                  {r.status === "ouvert" ? <ReportDecision id={r.id} gpName={r.gp_name} senderName={r.sender_name} /> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-muted">Aucun signalement. Les GP et les expéditeurs peuvent signaler un problème depuis chaque réservation.</p>
+          )}
+        </Card>
+
         <Card title="Paiements à vérifier" id="a-verifier">
           {toVerify.length ? (
             <ul className="divide-y divide-slate-100">

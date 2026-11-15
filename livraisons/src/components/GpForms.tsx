@@ -10,11 +10,15 @@ import {
   declarePaymentAction,
   gpApplicationAction,
   gpSettingsAction,
+  receiveBookingAction,
+  refuseBookingAction,
+  reportAction,
+  reportDecisionAction,
   saveTripAction,
   tripStatusAction,
 } from "@/app/actions";
 import type { TripStatus } from "@/lib/gp";
-import { ActionForm, ConfirmSubmit, Field, FormMessage, inputProps, SubmitButton, useFormKey } from "./forms";
+import { ActionForm, ConfirmSubmit, Field, FormMessage, inputProps, PhotoInput, SubmitButton, useFormKey } from "./forms";
 
 interface Opt {
   code: string;
@@ -146,12 +150,16 @@ export function BookingForm({
   fee,
   phoneExample,
   prohibited,
+  customsNote,
+  currencyLabel,
 }: {
   tripId: number;
   maxKg: string;
   fee: string | null;
   phoneExample: string;
   prohibited: string[];
+  customsNote: string;
+  currencyLabel: string;
 }) {
   const [state, action] = useActionState(bookTripAction, {});
   const formKey = useFormKey(state);
@@ -177,6 +185,9 @@ export function BookingForm({
         <Field label="Ville du destinataire" name="recipient_city" error={e("recipient_city")}>
           <input {...p("recipient_city")} />
         </Field>
+        <Field label={`Valeur approximative du colis (${currencyLabel})`} name="declared_value" error={e("declared_value")} hint="Utile pour la douane et en cas de problème.">
+          <input {...p("declared_value")} inputMode="numeric" placeholder="ex. 50000" />
+        </Field>
       </div>
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         <p className="font-semibold">Objets interdits</p>
@@ -185,10 +196,17 @@ export function BookingForm({
             <li key={x}>{x}</li>
           ))}
         </ul>
+        <p className="mt-2 text-xs">{customsNote}</p>
       </div>
       <label className="flex items-start gap-2 text-sm text-ink-soft">
         <input type="checkbox" name="accept_rules" value="1" className="mt-1 h-4 w-4" defaultChecked={state.values?.accept_rules === "1"} />
-        <span>Je confirme que mon colis ne contient aucun objet interdit et que j'en connais le contenu.</span>
+        <span>
+          Je confirme que mon colis ne contient aucun objet interdit, que j'en connais le contenu, et j'accepte les{" "}
+          <Link href="/conditions" className="link" target="_blank">
+            conditions d'utilisation
+          </Link>
+          .
+        </span>
       </label>
       {e("accept_rules") ? <p className="-mt-2 text-sm font-medium text-red-700">{e("accept_rules")}</p> : null}
       <SubmitButton className="btn-primary btn-lg w-full" pendingLabel="Réservation…">
@@ -335,5 +353,116 @@ export function GpSettingsForm({ fee, paymentInfo, currencyLabel }: { fee: numbe
         </div>
       )}
     </ActionForm>
+  );
+}
+
+/* ---------- Garde-fous ---------- */
+
+/** Le GP reçoit le colis : il l'ouvre, vérifie le contenu, peut prendre une photo, ou le refuse. */
+export function ReceiveForms({ id, description }: { id: number; description: string }) {
+  const [refusing, setRefusing] = useState(false);
+  return (
+    <div className="space-y-4">
+      <ActionForm action={receiveBookingAction} hidden={{ id }}>
+        {(state) => (
+          <>
+            <p className="text-sm text-ink-soft">
+              Contenu déclaré : <span className="font-semibold text-ink">{description}</span>. Ouvrez le colis devant l'expéditeur et vérifiez qu'il correspond.
+            </p>
+            <label className="flex items-start gap-2 text-sm text-ink-soft">
+              <input type="checkbox" name="verified" value="1" className="mt-1 h-4 w-4" defaultChecked={state.values?.verified === "1"} />
+              <span>J'ai ouvert le colis et vérifié son contenu : il correspond à la déclaration et ne contient aucun objet interdit.</span>
+            </label>
+            <PhotoInput name="photo" label="Photo du contenu" />
+            <SubmitButton className="btn-primary w-full sm:w-auto">Colis reçu et vérifié</SubmitButton>
+          </>
+        )}
+      </ActionForm>
+      <button type="button" className="btn-secondary btn-sm text-red-700" onClick={() => setRefusing((v) => !v)}>
+        Refuser ce colis
+      </button>
+      {refusing ? (
+        <ActionForm action={refuseBookingAction} hidden={{ id }}>
+          <input name="reason" className="input" maxLength={300} placeholder="Motif, ex. contenu différent de la déclaration, objet interdit…" />
+          <ConfirmSubmit
+            label="Confirmer le refus"
+            className="btn-danger btn-sm"
+            tone="danger"
+            title="Refuser ce colis ?"
+            message="La réservation est annulée ; l'expéditeur et l'entreprise sont prévenus."
+            confirmLabel="Refuser le colis"
+          />
+        </ActionForm>
+      ) : null}
+    </div>
+  );
+}
+
+export function ReportForm({ id, reasons }: { id: number; reasons: Record<string, string> }) {
+  const [open, setOpen] = useState(false);
+  if (!open)
+    return (
+      <button type="button" className="btn-ghost btn-sm text-red-700" onClick={() => setOpen(true)}>
+        Signaler un problème
+      </button>
+    );
+  return (
+    <ActionForm action={reportAction} hidden={{ id }} className="card p-4">
+      {(state) => (
+        <>
+          <p className="font-semibold text-ink">Signaler un problème</p>
+          <Field label="Motif" name="reason" error={state.errors?.reason} required>
+            <select {...inputProps("reason", state)}>
+              <option value="">Choisir…</option>
+              {Object.entries(reasons).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Détails" name="details" error={state.errors?.details}>
+            <textarea {...inputProps("details", state)} rows={3} maxLength={1000} placeholder="Que s'est-il passé ?" />
+          </Field>
+          <div className="flex gap-2">
+            <SubmitButton className="btn-primary btn-sm">Envoyer le signalement</SubmitButton>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setOpen(false)}>
+              Annuler
+            </button>
+          </div>
+          <p className="text-xs text-ink-muted">L'entreprise est prévenue tout de suite et peut suspendre un compte.</p>
+        </>
+      )}
+    </ActionForm>
+  );
+}
+
+export function ReportDecision({ id, gpName, senderName }: { id: number; gpName: string; senderName: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <ActionForm action={reportDecisionAction} hidden={{ id, decision: "traite" }}>
+        <SubmitButton className="btn-secondary btn-sm">Marquer comme traité</SubmitButton>
+      </ActionForm>
+      <ActionForm action={reportDecisionAction} hidden={{ id, decision: "suspendre_gp" }}>
+        <ConfirmSubmit
+          label="Suspendre le GP"
+          className="btn-secondary btn-sm text-red-700"
+          tone="danger"
+          title={`Suspendre le compte de ${gpName} ?`}
+          message="Il ne peut plus se connecter ; ses voyages ouverts et les réservations en attente sont annulés. Vous pourrez le réactiver."
+          confirmLabel="Suspendre"
+        />
+      </ActionForm>
+      <ActionForm action={reportDecisionAction} hidden={{ id, decision: "suspendre_expediteur" }}>
+        <ConfirmSubmit
+          label="Suspendre l'expéditeur"
+          className="btn-secondary btn-sm text-red-700"
+          tone="danger"
+          title={`Suspendre le compte de ${senderName} ?`}
+          message="Il ne peut plus se connecter ni réserver. Vous pourrez le réactiver depuis la page Commerçants."
+          confirmLabel="Suspendre"
+        />
+      </ActionForm>
+    </div>
   );
 }

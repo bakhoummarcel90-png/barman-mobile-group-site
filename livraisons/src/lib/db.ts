@@ -286,6 +286,22 @@ CREATE INDEX IF NOT EXISTS idx_gp_bookings_trip ON gp_bookings(trip_id, status);
 CREATE INDEX IF NOT EXISTS idx_gp_bookings_sender ON gp_bookings(sender_id);
 CREATE INDEX IF NOT EXISTS idx_gp_bookings_status ON gp_bookings(company_id, status);
 
+-- Signalements sur une réservation GP (colis suspect, GP injoignable…), traités par l'administrateur.
+CREATE TABLE IF NOT EXISTS gp_reports (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  booking_id INTEGER NOT NULL REFERENCES gp_bookings(id),
+  reporter_id INTEGER NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,
+  details TEXT,
+  status TEXT NOT NULL DEFAULT 'ouvert' CHECK (status IN ('ouvert','traite')),
+  resolution TEXT,
+  handled_by INTEGER REFERENCES users(id),
+  handled_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gp_reports_company ON gp_reports(company_id, status);
+
 -- Journal : changements de statut, encaissements, modifications, gestion des comptes.
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
@@ -371,6 +387,11 @@ function migrate(db: DatabaseSync): void {
     // GP : frais de mise en relation et instructions de paiement (Wave / Orange Money).
     ["companies", "gp_fee", "INTEGER NOT NULL DEFAULT 0"], // lancement : gratuit
     ["companies", "gp_payment_info", "TEXT"],
+    // GP : garde-fous (valeur déclarée, colis vérifié par le GP au dépôt, refus).
+    ["gp_bookings", "declared_value", "INTEGER"],
+    ["gp_bookings", "checked_at", "TEXT"],
+    ["gp_bookings", "check_photo", "TEXT"],
+    ["gp_bookings", "refusal_reason", "TEXT"],
   ];
   for (const [table, column, ddl] of add) {
     if (!columns(table).has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);

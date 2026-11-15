@@ -52,6 +52,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </Link>
         </p>
         <p className="mt-6 text-center text-xs text-ink-muted">
+          <Link href="/conditions" className="hover:underline">
+            Conditions
+          </Link>
+          {" · "}
           <Link href="/confidentialite" className="hover:underline">
             Confidentialité
           </Link>

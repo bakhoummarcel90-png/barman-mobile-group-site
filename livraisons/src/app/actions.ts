@@ -773,3 +773,65 @@ export async function gpSettingsAction(_: FormState, fd: FormData): Promise<Form
   refresh();
   return { ok: true, message: "Réglages GP enregistrés." };
 }
+
+/* ---------- GP : garde-fous ---------- */
+
+export async function receiveBookingAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["gp", "admin"]);
+  const id = idFrom(fd);
+  try {
+    const photo = await savePhoto(actor.companyId, fd.get("photo"));
+    gp.receiveBooking(actor, id, str(fd, "verified") === "1", photo);
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=recu`);
+}
+
+export async function refuseBookingAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["gp", "admin"]);
+  const id = idFrom(fd);
+  try {
+    gp.refuseBooking(actor, id, str(fd, "reason"));
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=refuse`);
+}
+
+export async function reportAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["merchant", "gp"]);
+  const id = idFrom(fd);
+  try {
+    gp.createReport(actor, id, str(fd, "reason"), optional(fd, "details"));
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp/reservations/${id}?ok=signale`);
+}
+
+export async function reportDecisionAction(_: FormState, fd: FormData): Promise<FormState> {
+  const actor = await requireUser(["admin"]);
+  const decision = str(fd, "decision");
+  const note = optional(fd, "resolution");
+  try {
+    const r = gp.getReport(actor, idFrom(fd));
+    if (decision === "suspendre_gp") {
+      people.setUserActive(actor, r.gp_id, false);
+      gp.closeTripsOf(r.gp_id);
+      gp.resolveReport(actor, r.id, note ?? `Compte du GP ${r.gp_name} suspendu`);
+    } else if (decision === "suspendre_expediteur") {
+      const merchantId = people.merchantIdOfUser(actor, r.sender_id);
+      if (merchantId) people.setMerchantActive(actor, merchantId, false);
+      else people.setUserActive(actor, r.sender_id, false);
+      gp.resolveReport(actor, r.id, note ?? `Compte de l'expéditeur ${r.sender_name} suspendu`);
+    } else gp.resolveReport(actor, r.id, note ?? "Traité sans suspension");
+  } catch (err) {
+    return failure(err, fd);
+  }
+  refresh();
+  redirect(`/gp?ok=${decision === "traite" ? "signalement-traite" : "compte-suspendu"}#signalements`);
+}

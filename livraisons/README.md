@@ -210,6 +210,17 @@ Les « GP » transportent des colis dans leurs bagages entre le Sénégal et l'�
 6. Le GP (ou l'expéditeur) marque le colis **remis au destinataire** ; l'expéditeur **note le GP**
    (moyenne affichée sur ses voyages).
 
+**Garde-fous** (objets interdits, douane) :
+- liste d'objets interdits détaillée + rappel douane à chaque réservation, case à cocher et
+  acceptation des **conditions d'utilisation** (`/conditions`, aussi exigées à l'inscription) ;
+- **valeur déclarée** du colis (facultative) ;
+- le GP doit **ouvrir et vérifier** le colis au dépôt (« Colis reçu et vérifié », photo du
+  contenu facultative, servie par `/api/gp-photo/[id]` aux seules personnes concernées) avant de
+  pouvoir le marquer remis ; il peut **refuser** un colis non conforme (réservation annulée,
+  administrateurs prévenus) ;
+- bouton **« Signaler un problème »** (expéditeur ou GP de la réservation) ; l'administrateur
+  traite les signalements dans `/gp` et peut **suspendre** le GP ou l'expéditeur.
+
 Le tableau de bord de l'administrateur affiche la **croissance de l'application** (comptes actifs
 par type, inscriptions, commandes, voyages et réservations GP des 8 dernières semaines) pour
 décider quand activer les frais.

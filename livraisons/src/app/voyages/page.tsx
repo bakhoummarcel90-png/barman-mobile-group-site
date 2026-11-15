@@ -128,6 +128,10 @@ export default async function PublicTripsPage({ searchParams }: { searchParams: 
         )}
         <p className="mt-6 text-center text-xs text-ink-muted">
           Pour réserver, connectez-vous ou créez un compte gratuit. ·{" "}
+          <Link href="/conditions" className="hover:underline">
+            Conditions d'utilisation
+          </Link>
+          {" · "}
           <Link href="/confidentialite" className="hover:underline">
             Confidentialité
           </Link>
