@@ -17,7 +17,7 @@ export default function SetupPage() {
           <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg">
             <Truck className="h-7 w-7" aria-hidden />
           </span>
-          <h1 className="text-2xl font-bold text-ink">Bienvenue sur SenLivraison</h1>
+          <h1 className="text-2xl font-bold text-ink">Bienvenue sur Sen Service Livraisons</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Créez votre entreprise de livraison et votre compte administrateur. Vous ajouterez ensuite vos livreurs et vos commerçants.
           </p>

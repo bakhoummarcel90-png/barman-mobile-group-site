@@ -4,7 +4,8 @@ import { BadgeCheck, Banknote, Flag, Plane, PlusCircle, Search, UserCheck } from
 import { BookingBadge, formatDay, TripBadge, TripCard } from "@/components/GpTripCard";
 import { GpApplication, GpSettingsForm, PaymentDecision, ReportDecision } from "@/components/GpForms";
 import { LaunchBanner } from "@/components/Growth";
-import { Card, EmptyState, OkBanner, PageHeader, Stat } from "@/components/ui";
+import { ResetPassword, ToggleUser } from "@/components/PeopleForms";
+import { ActiveBadge, Card, EmptyState, OkBanner, PageHeader, Stat } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { countryOf } from "@/lib/company";
 import { formatDateTime, formatMoney, formatPhone } from "@/lib/format";
@@ -173,6 +174,7 @@ function AdminHome({ user, ok }: { user: Actor; ok?: string }) {
   const counts = gp.gpCounts(user);
   const toVerify = gp.bookingsToVerify(user);
   const applicants = pendingApplicants(user, "gp");
+  const gpAccounts = gp.listGps(user);
   const trips = gp.listTrips(user);
   const recent = gp.recentBookings(user, 30);
   const settings = gp.gpSettings(user.companyId);
@@ -270,6 +272,35 @@ function AdminHome({ user, ok }: { user: Actor; ok?: string }) {
           <p className="mt-3 text-xs text-ink-muted">
             Avant d'accepter un GP, demandez-lui une pièce d'identité et, si possible, son billet d'avion : c'est la confiance de vos clients qui est en jeu.
           </p>
+        </Card>
+
+        <Card title={`GP inscrits (${gpAccounts.filter((g) => g.active).length} actifs)`} id="gp-inscrits">
+          {gpAccounts.length ? (
+            <ul className="divide-y divide-slate-100">
+              {gpAccounts.map((g) => (
+                <li key={g.id} className="space-y-2 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      <span className="font-semibold text-ink">{g.name}</span> <ActiveBadge active={g.active} />
+                      <span className="block text-sm text-ink-muted">
+                        {formatPhone(g.phone, country)}
+                        {g.email ? ` · ${g.email}` : ""}
+                        {g.zone ? ` · ${g.zone}` : ""} · {g.trip_count} voyage(s)
+                        {g.rating_count ? ` · ★ ${g.rating_avg} (${g.rating_count} avis)` : ""}
+                        {g.last_login_at ? ` · dernière connexion ${formatDateTime(g.last_login_at, country)}` : " · jamais connecté"}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <ResetPassword userId={g.id} name={g.name} />
+                    <ToggleUser userId={g.id} active={!!g.active} name={g.name} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-muted">Aucun GP accepté pour le moment.</p>
+          )}
         </Card>
 
         <Card title="Voyages">

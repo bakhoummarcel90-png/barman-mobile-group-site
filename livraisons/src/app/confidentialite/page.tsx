@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage title="Politique de confidentialité" updated="10 novembre 2026">
       <p>
-        SenLivraison est une application de gestion des livraisons et des colis utilisée par des entreprises de livraison, leurs livreurs
+        Sen Service Livraisons est une application de gestion des livraisons et des colis utilisée par des entreprises de livraison, leurs livreurs
         et les commerçants qu'elles servent. Cette page explique quelles données sont traitées, pourquoi, et comment exercer vos droits.
       </p>
 
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         Contact : <Configured value={l.email} label="e-mail de contact" />.
       </p>
       <p>
-        Chaque entreprise de livraison qui utilise SenLivraison est responsable des données de ses clients, livreurs et commerçants ;
+        Chaque entreprise de livraison qui utilise Sen Service Livraisons est responsable des données de ses clients, livreurs et commerçants ;
         l'éditeur les héberge et les traite pour son compte.
       </p>
 
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         L'application ne collecte pas la position GPS, ne contient pas de publicité et ne vend aucune donnée. Les boutons WhatsApp, SMS,
-        Appel et Itinéraire ouvrent les applications de votre téléphone : SenLivraison n'envoie aucun message à votre place.
+        Appel et Itinéraire ouvrent les applications de votre téléphone : Sen Service Livraisons n'envoie aucun message à votre place.
       </p>
 
       <h2>Finalités</h2>

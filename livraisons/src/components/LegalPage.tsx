@@ -9,7 +9,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
             <Truck className="h-4 w-4" aria-hidden />
           </span>
-          SenLivraison
+          Sen Service Livraisons
         </Link>
         <div className="card p-5 sm:p-8">
           <h1 className="text-2xl font-bold text-ink">{title}</h1>

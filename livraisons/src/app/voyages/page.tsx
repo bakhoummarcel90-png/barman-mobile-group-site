@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Voyages GP : envoyer un colis entre le Sénégal et l'étranger",
   description:
     "Trouvez un GP (voyageur) qui part de Dakar vers Paris, Milan, New York… ou qui rentre au Sénégal, et réservez des kilos pour votre colis. GP vérifiés, prix au kilo affiché.",
-};
+  alternates: { canonical: "/voyages" }, robots: { index: true, follow: true } };
 export const dynamic = "force-dynamic";
 
 /** Liste publique des voyages GP ouverts (sans le téléphone ni le nom complet des GP). */

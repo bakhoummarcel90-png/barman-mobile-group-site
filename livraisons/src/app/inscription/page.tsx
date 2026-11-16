@@ -11,7 +11,7 @@ import { SignupForm } from "./SignupForm";
 import { LaunchBanner } from "@/components/Growth";
 import { gpSettings } from "@/lib/gp";
 
-export const metadata: Metadata = { title: "Créer un compte" };
+export const metadata: Metadata = { title: "Créer un compte", robots: { index: true, follow: true } };
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

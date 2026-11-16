@@ -1,5 +1,5 @@
 /*
- * Service worker de SenLivraison.
+ * Service worker de Sen Service Livraisons.
  * Volontairement minimal : les pages contiennent des données privées, elles ne
  * sont donc JAMAIS mises en cache. Seuls les icônes et la page « hors
  * connexion » le sont, pour afficher un message clair sans réseau.
@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
 
 /* Notifications push (nouvelles inscriptions, etc.). */
 self.addEventListener("push", (event) => {
-  let data = { title: "SenLivraison", body: "", url: "/notifications" };
+  let data = { title: "Sen Service Livraisons", body: "", url: "/notifications" };
   try {
     data = { ...data, ...event.data.json() };
   } catch {

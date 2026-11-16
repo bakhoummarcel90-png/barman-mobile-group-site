@@ -12,11 +12,11 @@ export default async function DeleteAccountInfoPage({ searchParams }: { searchPa
   const done = (await searchParams).ok === "1";
   const l = legalInfo();
   return (
-    <LegalPage title="Supprimer son compte SenLivraison" updated="10 novembre 2026">
+    <LegalPage title="Supprimer son compte Sen Service Livraisons" updated="10 novembre 2026">
       {done ? <Alert tone="success">Votre compte a été supprimé et vous avez été déconnecté.</Alert> : null}
       <h2>Depuis l'application</h2>
       <ol className="list-decimal space-y-1 pl-5">
-        <li>Connectez-vous à SenLivraison.</li>
+        <li>Connectez-vous à Sen Service Livraisons.</li>
         <li>
           Ouvrez <strong>Mon compte</strong> (menu ☰ sur téléphone).
         </li>

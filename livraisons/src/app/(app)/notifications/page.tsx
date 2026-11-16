@@ -4,6 +4,7 @@ import { markAllReadAction } from "@/app/actions";
 import { PushSettings } from "@/components/PushSettings";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { ROLES } from "@/lib/constants";
 import { countryOf } from "@/lib/company";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { listNotifications, pushDeviceCount, unreadCount, vapidKeys } from "@/lib/notifications";
@@ -11,7 +12,7 @@ import { listNotifications, pushDeviceCount, unreadCount, vapidKeys } from "@/li
 export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
-  const user = await requireUser(["admin", "gp"]);
+  const user = await requireUser([...ROLES]);
   const country = countryOf(user);
   const items = listNotifications(user, 60);
   const unread = unreadCount(user);
@@ -53,7 +54,9 @@ export default async function NotificationsPage() {
             </ul>
           ) : (
             <EmptyState icon={Bell} title="Aucune notification">
-              Vous serez prévenu ici à chaque nouvelle inscription (commerçant, particulier, livreur).
+              {user.role === "admin"
+                ? "Vous serez prévenu ici à chaque nouvelle inscription, paiement ou signalement."
+                : "Vous serez prévenu ici des étapes de vos envois et réservations."}
             </EmptyState>
           )}
         </div>

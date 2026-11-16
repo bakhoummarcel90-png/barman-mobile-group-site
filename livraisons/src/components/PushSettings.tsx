@@ -82,7 +82,7 @@ export function PushSettings({ publicKey }: { publicKey: string }) {
       {status === "loading" ? <p className="text-sm text-ink-muted">Vérification…</p> : null}
       {status === "ios-not-installed" ? (
         <Alert tone="warning">
-          Sur iPhone, les notifications ne marchent que dans l'application installée : ouvrez SenLivraison dans Safari → Partager →
+          Sur iPhone, les notifications ne marchent que dans l'application installée : ouvrez Sen Service Livraisons dans Safari → Partager →
           « Sur l'écran d'accueil », puis ouvrez l'icône et revenez ici (iOS 16.4 ou plus récent).
         </Alert>
       ) : null}

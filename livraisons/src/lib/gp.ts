@@ -862,3 +862,34 @@ export function openReportCount(actor: Actor): number {
   if (actor.role !== "admin") return 0;
   return get<{ n: number }>("SELECT COUNT(*) AS n FROM gp_reports WHERE company_id = ? AND status = 'ouvert'", actor.companyId)!.n;
 }
+
+/* ---------- Administration : GP inscrits ---------- */
+
+export interface GpAccount {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  zone: string | null;
+  active: number;
+  created_at: string;
+  last_login_at: string | null;
+  trip_count: number;
+  rating_avg: number | null;
+  rating_count: number;
+}
+
+/** GP acceptés (actifs ou désactivés), hors inscriptions refusées ou comptes supprimés. */
+export function listGps(actor: Actor): GpAccount[] {
+  if (actor.role !== "admin") return [];
+  return all<GpAccount>(
+    `SELECT u.id, u.name, u.phone, u.email, u.zone, u.active, u.created_at, u.last_login_at,
+       (SELECT COUNT(*) FROM gp_trips t WHERE t.gp_id = u.id AND t.status <> 'annule') AS trip_count,
+       (SELECT ROUND(AVG(b.rating), 1) FROM gp_bookings b JOIN gp_trips t ON t.id = b.trip_id WHERE t.gp_id = u.id AND b.rating IS NOT NULL) AS rating_avg,
+       (SELECT COUNT(*) FROM gp_bookings b JOIN gp_trips t ON t.id = b.trip_id WHERE t.gp_id = u.id AND b.rating IS NOT NULL) AS rating_count
+     FROM users u
+     WHERE u.company_id = ? AND u.role = 'gp' AND u.pending = 0 AND (u.phone IS NOT NULL OR u.email IS NOT NULL)
+     ORDER BY u.active DESC, u.name`,
+    actor.companyId,
+  );
+}

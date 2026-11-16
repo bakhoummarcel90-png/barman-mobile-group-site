@@ -142,8 +142,8 @@ export function AppNav({
     </nav>
   );
 
-  const bell =
-    role === "admin" || role === "gp" ? (
+  // Cloche des notifications : pour tous les rôles (inscriptions, réservations, colis…).
+  const bell = (
       <Link
         href="/notifications"
         className={cx("relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-slate-100", isActive(pathname, "/notifications") && "bg-brand-50 text-brand-800")}
@@ -156,7 +156,7 @@ export function AppNav({
           </span>
         ) : null}
       </Link>
-    ) : null;
+    );
 
   const brand = (
     <div className="flex items-center gap-2.5 px-5 py-4">
@@ -164,8 +164,8 @@ export function AppNav({
         <Truck className="h-5 w-5" aria-hidden />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-bold text-ink">SenLivraison</span>
-        <span className="block truncate text-xs text-ink-muted">{companyName}</span>
+        <span className="block text-sm font-bold text-ink">Sen Service Livraisons</span>
+        {companyName.trim().toLowerCase() !== "sen service livraisons" ? <span className="block truncate text-xs text-ink-muted">{companyName}</span> : null}
       </span>
     </div>
   );

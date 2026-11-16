@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
-/** Manifeste d'application : rend SenLivraison installable (écran d'accueil, Play Store via TWA). */
+/** Manifeste d'application : rend Sen Service Livraisons installable (écran d'accueil, Play Store via TWA). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "SenLivraison — gestion des livraisons",
-    short_name: "SenLivraison",
-    description: "Commandes, livreurs, encaissements et colis internationaux pour les entreprises de livraison en Afrique de l'Ouest.",
+    name: "Sen Service Livraisons",
+    short_name: "Sen Service",
+    description: "Votre GP en ligne : envoyez vos colis entre le Sénégal et l'étranger avec des GP vérifiés. Livraisons à Dakar.",
     lang: "fr",
     dir: "ltr",
     start_url: "/",
