@@ -5,9 +5,11 @@ import { Plane, Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { get } from "@/lib/db";
 import { signupCompany } from "@/lib/signup";
+import { legalInfo } from "@/lib/legal";
+import { waNumber } from "@/lib/format";
 import { LoginForm } from "./LoginForm";
 
-export const metadata: Metadata = { title: "Connexion" };
+export const metadata: Metadata = { title: "Connexion", robots: { index: true, follow: true } };
 export const dynamic = "force-dynamic";
 
 /** Page interne où revenir après la connexion (ex. un voyage GP vu sur /voyages). */
@@ -22,6 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (!get("SELECT 1 FROM users LIMIT 1")) redirect("/installation");
   // Le rappel des comptes de démonstration n'apparaît que si la démo est installée.
   const signupOpen = !!signupCompany()?.signup_open;
+  const companyPhone = get<{ phone: string | null }>("SELECT phone FROM companies ORDER BY id LIMIT 1")?.phone ?? null;
   const demo = process.env.HIDE_DEMO_HINT !== "1" && !!get("SELECT 1 FROM users WHERE email = 'admin@demo.sn'");
 
   return (
@@ -31,11 +34,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg">
             <Truck className="h-7 w-7" aria-hidden />
           </span>
-          <h1 className="text-2xl font-bold text-ink">SenLivraison</h1>
+          <h1 className="text-2xl font-bold text-ink">Sen Service Livraisons</h1>
           <p className="mt-1 text-sm text-ink-muted">Commandes, livreurs et encaissements, au même endroit.</p>
         </div>
         <div className="card p-5 sm:p-6">
-          <LoginForm next={next} />
+          <LoginForm next={next} contactEmail={legalInfo().email} whatsapp={companyPhone ? waNumber(companyPhone) : null} />
         </div>
         {signupOpen ? (
           <Link href="/inscription" className="btn-secondary mt-3 w-full">

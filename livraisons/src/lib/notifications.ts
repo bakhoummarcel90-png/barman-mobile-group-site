@@ -85,7 +85,6 @@ export function notifyUser(companyId: number, userId: number, n: { title: string
 }
 
 export function unreadCount(actor: Actor): number {
-  if (actor.role !== "admin" && actor.role !== "gp") return 0;
   return get<{ n: number }>("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", actor.id)!.n;
 }
 
@@ -138,5 +137,5 @@ export function pushDeviceCount(actor: Actor): number {
 
 /** Envoie une notification de test aux appareils de l'utilisateur. */
 export async function sendTestPush(actor: Actor): Promise<void> {
-  await sendPush([actor.id], { title: "SenLivraison", body: "Les notifications fonctionnent sur cet appareil.", url: "/notifications" });
+  await sendPush([actor.id], { title: "Sen Service Livraisons", body: "Les notifications fonctionnent sur cet appareil.", url: "/notifications" });
 }

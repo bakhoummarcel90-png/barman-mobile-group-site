@@ -1,6 +1,6 @@
 # Où on en est (suivi du projet)
 
-_Dernière mise à jour : 14 novembre 2026_
+_Dernière mise à jour : 16 novembre 2026_
 
 ## En ligne
 - Application : https://senservicelivraison.up.railway.app (Railway, dossier `livraisons`, volume `/data`, branche `main`)
@@ -68,6 +68,17 @@ signature. Pour activer la bourse : Paramètres → Attribution des courses → 
   signalements avec suspension de compte par l'admin.
 - En attente : avis des testeurs (texte WhatsApp envoyé), enregistrement de la voix de Marcel pour
   la vidéo « Votre GP en ligne » (version avec voix de synthèse déjà faite).
+
+## PASSAGE EN MODE RÉEL : FAIT le 16 novembre 2026
+- Démo effacée (Wipe volume), installation faite : entreprise « sen service livraisons » (à mettre
+  en majuscules dans Paramètres), administrateur Marcel Bakhoum.
+- Variables Railway : SETUP_CODE, HIDE_DEMO_HINT=1, LEGAL_EDITOR_NAME, LEGAL_EDITOR_ADDRESS,
+  LEGAL_CONTACT_EMAIL (SEED_DEMO et DEMO_PASSWORD supprimées). Option : PUBLIC_URL si nouvelle adresse.
+- Ajouts du 16/11 : nom « Sen Service Livraisons » partout, aperçu des liens (og-image.png),
+  pages publiques visibles par Google (robots.txt, sitemap.xml), visiteurs → /voyages, cloche des
+  notifications pour tous, « mot de passe oublié » avec contact, liste « GP inscrits » (admin).
+- Reste : choisir l'offre Railway (essai ~24 jours au 16/11), sauvegardes, clé Brevo à régénérer
+  puis activer, relecture juridique des conditions, adresse personnalisée, Play Store (D-U-N-S).
 
 ## Revue de sécurité (15 novembre)
 - Corrigé dans le code : Next.js 16.3.5 → 16.4.6 (failles critiques connues, dont exécution de code à

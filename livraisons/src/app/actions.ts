@@ -582,13 +582,13 @@ export async function verifyMerchantAction(_: FormState, fd: FormData): Promise<
 }
 
 export async function markAllReadAction(): Promise<void> {
-  const actor = await requireUser(["admin", "gp"]);
+  const actor = await requireUser([...ROLES]);
   notifications.markAllRead(actor);
   refresh();
 }
 
 export async function savePushSubscriptionAction(sub: { endpoint: string; p256dh: string; auth: string }): Promise<FormState> {
-  const actor = await requireUser(["admin", "gp"]);
+  const actor = await requireUser([...ROLES]);
   try {
     notifications.savePushSubscription(actor, sub);
     await notifications.sendTestPush(actor);
@@ -600,7 +600,7 @@ export async function savePushSubscriptionAction(sub: { endpoint: string; p256dh
 }
 
 export async function deletePushSubscriptionAction(endpoint: string): Promise<FormState> {
-  const actor = await requireUser(["admin", "gp"]);
+  const actor = await requireUser([...ROLES]);
   notifications.deletePushSubscription(actor, endpoint);
   refresh();
   return { ok: true, message: "Notifications désactivées sur cet appareil." };

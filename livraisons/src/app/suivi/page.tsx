@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Package } from "lucide-react";
 import { normalizeTrackingNumber } from "@/lib/shipments";
 
-export const metadata: Metadata = { title: "Suivre un colis" };
+export const metadata: Metadata = { title: "Suivre un colis", robots: { index: true, follow: true } };
 export const dynamic = "force-dynamic";
 
 /** Page publique : le client saisit son numéro de suivi (aucun compte nécessaire). */

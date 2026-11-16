@@ -7,7 +7,7 @@
  * Variables (chez l'hébergeur) :
  *   BREVO_API_KEY      clé API Brevo (Paramètres SMTP & API → Clés API)
  *   MAIL_FROM_EMAIL    adresse expéditeur VÉRIFIÉE dans Brevo (Expéditeurs)
- *   MAIL_FROM_NAME     nom affiché (facultatif, par défaut « SenLivraison »)
+ *   MAIL_FROM_NAME     nom affiché (facultatif, par défaut « Sen Service Livraisons »)
  * Sans BREVO_API_KEY et MAIL_FROM_EMAIL, aucun e-mail n'est envoyé et
  * l'inscription fonctionne sans code.
  *
@@ -45,7 +45,7 @@ export async function sendMail(mail: Mail): Promise<void> {
     method: "POST",
     headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
-      sender: { email: from, name: process.env.MAIL_FROM_NAME || "SenLivraison" },
+      sender: { email: from, name: process.env.MAIL_FROM_NAME || "Sen Service Livraisons" },
       to: [{ email: mail.to, ...(mail.toName ? { name: mail.toName } : {}) }],
       subject: mail.subject,
       textContent: mail.text,
