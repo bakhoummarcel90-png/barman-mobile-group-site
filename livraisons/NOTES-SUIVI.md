@@ -2,6 +2,38 @@
 
 _Dernière mise à jour : 16 novembre 2026_
 
+
+## ➡️ QUAND MARCEL DIT « CONTINUONS » : reprendre cette liste (16 novembre 2026, au soir)
+Tout le code est fusionné (PR n°16). Lui redonner cette liste et avancer point par point.
+
+### 🔴 Indispensable avant d'annoncer sur les réseaux (Marcel)
+1. Railway : carte → Settings → Upstream Repo → Update → Yes → attendre « Online ».
+   Vérifier : l'adresse du site ouvre la page des voyages ; le menu affiche « Sen Service Livraisons ».
+2. Paramètres → Entreprise : nom avec majuscules « Sen Service Livraisons » + téléphone de l'entreprise
+   (utilisé par le lien WhatsApp « mot de passe oublié »).
+3. GP voyageurs → Réglages GP : frais = 0 → Enregistrer.
+4. Vérifier /conditions et /confidentialite : aucun texte surligné en jaune.
+5. Essai réel avec 1 ou 2 proches : un GP s'inscrit → l'accepter → il publie un voyage → un particulier
+   réserve → chacun reçoit le contact de l'autre, la cloche s'allume.
+6. Recruter 5 à 10 vrais GP avant la grosse publicité (la page des voyages ne doit pas être vide).
+
+### 🟠 Dans les prochains jours (Marcel)
+7. Offre payante Railway (~5 $/mois, Hobby) : l'essai finit vers le 10 décembre 2026 → sinon le site s'arrête.
+8. Sauvegardes : Railway → disque → Backups (si l'offre le permet).
+9. Régénérer la clé Brevo (vue sur des photos) puis ajouter BREVO_API_KEY, MAIL_FROM_EMAIL,
+   MAIL_FROM_NAME sur Railway → active le code de vérification par e-mail (moins de faux comptes).
+10. Faire relire les Conditions d'utilisation par un juriste au Sénégal.
+
+### 🟢 Plus tard (ensemble)
+11. Instagram puis TikTok (Facebook déjà créé) : biographies + publication de la vidéo de 37 s.
+12. Play Store : numéro D-U-N-S de Barman Mobile (dnb.com, gratuit) → payer 25 $ → paquet Android ;
+    puis App Store.
+13. Adresse personnalisée (ex. senservicelivraisons.com) → variable PUBLIC_URL sur Railway.
+14. Quand il y a du monde : activer les frais (Réglages GP) avec le vrai numéro Wave/Orange Money,
+    prévenir les utilisateurs avant ; plus tard paiement automatique (PayTech, PayDunya…).
+
+En attente aussi : avis des testeurs ; enregistrement de la voix de Marcel pour la vidéo « Votre GP en ligne ».
+
 ## En ligne
 - Application : https://senservicelivraison.up.railway.app (Railway, dossier `livraisons`, volume `/data`, branche `main`)
 - Démo chargée (`SEED_DEMO=1`, mot de passe = variable `DEMO_PASSWORD` dans Railway).
